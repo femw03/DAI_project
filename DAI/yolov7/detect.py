@@ -43,7 +43,7 @@ def save_snipped_feature(im0, xyxy, frame, cls, detection_idx, snip_dir, class_i
 
     # Save the snipped image
     cv2.imwrite(snip_save_path, snip_img)
-    print(f'Saved snipped image at {snip_save_path}')
+    #print(f'Saved snipped image at {snip_save_path}')
 
 
 # added
@@ -194,7 +194,7 @@ def detect(save_img=False, snip_features=False, snip_dir_TL='data/traffic_lights
             if save_img:
                 if dataset.mode == 'image':
                     cv2.imwrite(save_path, im0)
-                    print(f" The image with the result is saved in: {save_path}")
+                    #print(f" The image with the result is saved in: {save_path}")
                 else:  # 'video' or 'stream'
                     if vid_path != save_path:  # new video
                         vid_path = save_path
