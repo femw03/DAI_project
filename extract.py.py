@@ -113,7 +113,8 @@ seg_info = np.zeros((540, 960, 3), dtype="i")
 
 # Creates Directory
 dir_rgb = 'custom_data/'
-dir_depth = 'depth/'
+dir_depth_rgb = 'depth_rgb/'
+dir_depth_gray = 'depth_gray/'
 dir_seg = 'SegmentationImage/'
 dir_pbbox = 'PedestrianBBox/'
 dir_vbbox = 'VehicleBBox/'
@@ -128,8 +129,10 @@ if not os.path.exists(dir_vbbox):
     os.makedirs(dir_vbbox)
 if not os.path.exists(dir_trafficLightBox):
     os.makedirs(dir_trafficLightBox)
-if not os.path.exists(dir_depth):
-    os.makedirs(dir_depth)
+if not os.path.exists(dir_depth_rgb):
+    os.makedirs(dir_depth_rgb)
+if not os.path.exists(dir_depth_gray):
+    os.makedirs(dir_depth_gray)
 
 
 # ==============================================================================
@@ -617,7 +620,7 @@ class BasicSynchronousClient(object):
         depth_bp.set_attribute('image_size_y', str(VIEW_HEIGHT))
         depth_bp.set_attribute('fov', str(VIEW_FOV))
         depth_bp.set_attribute('sensor_tick', str(FRAMERATE))
-        return lidar_bp
+        return depth_bp
 
     def set_synchronous_mode(self, synchronous_mode):
         """
@@ -731,15 +734,28 @@ class BasicSynchronousClient(object):
             self.depth_data = depth_data
             self.capture_depth = False  # Reset the capture flag
         
-            # Process the depth image
+            # Process the depth image (in BGRA)
             depth_array = np.frombuffer(depth_data.raw_data, dtype=np.dtype("uint8"))
             depth_array = np.reshape(depth_array, (depth_data.height, depth_data.width, 4))  # BGRA format
 
             # Create an RGB image using the first three channels (R, G, B)
-            depth_image = np.zeros((VIEW_HEIGHT, VIEW_WIDTH, 3), dtype=np.uint8)  # Initialize RGB image
-            depth_image = depth_array[:, :, :3]  # Extract only R, G, B channels
-            cv2.imwrite('depth/image' + str(self.image_count) + '.png', depth_image) 
-            print("Depth Image")
+            depth_image_rgb = np.zeros((VIEW_HEIGHT, VIEW_WIDTH, 3), dtype=np.uint8)  # Initialize RGB image
+            depth_image_rgb[:, :, 0] = depth_array[:, :, 2]  # Extract R channel
+            depth_image_rgb[:, :, 1] = depth_array[:, :, 1]  # Extract G channel
+            depth_image_rgb[:, :, 2] = depth_array[:, :, 0]  # Extract B channel
+
+            cv2.imwrite('depth_rgb/image' + str(self.image_count) + '.png', depth_image_rgb) 
+            print("Depth Image RGB")
+
+            # Step 2: Convert to grayscale logarithmic depth and save
+            depth_data.convert(carla.ColorConverter.LogarithmicDepth)
+
+            # Convert to numpy array again after applying ColorConverter
+            log_depth_array = np.frombuffer(depth_data.raw_data, dtype=np.uint8)
+            log_depth_array= np.reshape(log_depth_array, (depth_data.height, depth_data.width, 4))  # In BGRA format
+            depth_image_grayscale = log_depth_array[:, :, 2] #the grayscale values reside in the R channel
+            cv2.imwrite('depth_gray/image' + str(self.image_count) + '.png', depth_image_grayscale) 
+            print("Depth Image Grayscale")
             
 
     @staticmethod
