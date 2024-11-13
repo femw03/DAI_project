@@ -6,4 +6,4 @@ from .carla_utils import (
     SetAutoPiloteCommand,  # noqa: F401
     DestroyActorCommand,  # noqa: F401
 )  # noqa: F401
-from .carla_blueprint import CarlaBlueprint, CarlaRGBBlueprint  # noqa: F401
+from .carla_blueprint import CarlaBlueprint, CarlaRGBBlueprint, CarlaDepthBlueprint  # noqa: F401

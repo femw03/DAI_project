@@ -12,6 +12,7 @@ from .wrappers import (
     CarlaRGBBlueprint,
     CarlaImage,
     CarlaActor,
+    CarlaDepthBlueprint,
 )
 
 import os
@@ -40,7 +41,8 @@ class World:
         self.number_of_walkers = walkers
         self.number_of_cars = cars
 
-        self.image: Optional[np.ndarray] = None
+        self.rgb_image: Optional[np.ndarray] = None
+        self.depth_image: Optional[np.ndarray] = None
         self.client = CarlaClient(port=2000)
         self.car: Optional[CarlaVehicle] = None
         self.all_actors: List[CarlaActor] = []
@@ -61,12 +63,28 @@ class World:
 
         self.rgb_camera = self.car.add_camera(rgb_camera_bp)
 
-        def save_image(image: CarlaImage):
+        def save_rgb_image(image: CarlaImage):
             logger.debug("received image")
-            self.image = image.numpy_image
+            self.rgb_image = image.numpy_image
 
-        self.rgb_camera.listen(save_image)  # Actor may not lose scope
+        self.rgb_camera.listen(save_rgb_image)  # Actor may not lose scope
         self.all_actors.append(self.car)
+
+        depth_camera_bp = CarlaDepthBlueprint.from_blueprint(
+            world.blueprint_library.filter("sensor.camera.depth")[0]
+        )
+        depth_camera_bp["image_size_x"] = str(self.view_width)
+        depth_camera_bp["image_size_y"] = str(self.view_height)
+        depth_camera_bp["fov"] = str(self.view_FOV)
+        self.depth_camera = self.car.add_camera(depth_camera_bp)
+
+        def save_depth_image(image: CarlaImage):
+            depth_data = image.to_depth()
+            self.depth_image = np.stack(
+                [depth_data.reshape([image.width, image.height])] * 3, axis=-1
+            )
+
+        self.depth_camera.listen(save_depth_image)
 
     def setup(self):
         logger.info("Using display 1")
@@ -93,16 +111,17 @@ class World:
         try:
             self.setup()
             framecount = 0
+            display_rgb = True
             while self.running:
                 logger.debug(f"frame: {framecount}   ")
                 self.client.world.tick()
 
                 self.capture = True
                 self.clock.tick_busy_loop(self.framerate)
-
-                if self.image is not None:
-                    logger.debug(f"blitting image {self.image}")
-                    surface = pygame.surfarray.make_surface(self.image.swapaxes(0, 1))
+                image = self.rgb_image if display_rgb else self.depth_image
+                if image is not None:
+                    logger.debug(f"blitting image {image}")
+                    surface = pygame.surfarray.make_surface(image.swapaxes(0, 1))
                     self.display.blit(surface, (0, 0))
 
                 pygame.display.flip()
@@ -114,6 +133,9 @@ class World:
                     break
                 if keys[pygame.locals.K_a]:
                     self.car.autopilot = not self.car.autopilot
+                if keys[pygame.locals.K_t]:
+                    logger.info("switching image")
+                    display_rgb = not display_rgb
                 framecount += 1
 
         finally:

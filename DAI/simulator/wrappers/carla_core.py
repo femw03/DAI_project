@@ -292,12 +292,17 @@ class CarlaImage:
     width: int
     raw_data: List[int]
     """Flattened array of bytes, use reshape according to width and height"""
+    native: carla.Image
 
     @staticmethod
     def from_native(carla_image: carla.Image):
         assert isinstance(carla_image, carla.Image)
         return CarlaImage(
-            carla_image.fov, carla_image.height, carla_image.width, carla_image.raw_data
+            carla_image.fov,
+            carla_image.height,
+            carla_image.width,
+            carla_image.raw_data,
+            carla_image,
         )
 
     @property
@@ -307,3 +312,6 @@ class CarlaImage:
         array = array[:, :, :3]
         array = array[:, :, ::-1]
         return array
+
+    def to_depth(self) -> np.ndarray:
+        return self.native.convert(carla.ColorConverter.Depth)

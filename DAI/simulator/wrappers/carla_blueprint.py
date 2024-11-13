@@ -116,3 +116,39 @@ class CarlaRGBBlueprint(CarlaBlueprint):
                 f"Cannot downcast the blueprint to RGB blueprint because it does not have the following keys: {missing_keys}"
             )
         return CarlaRGBBlueprint(blueprint.blueprint)
+
+
+class CarlaDepthBlueprint(CarlaBlueprint):
+    ATTRIBUTES = {
+        "fov",
+        "image_size_x",
+        "image_size_y",
+        "lens_circle_falloff",
+        "lens_circle_multiplier",
+        "lens_k",
+        "lens_kcube",
+        "lens_x_size",
+        "lens_y_size",
+        "role_name",
+        "sensor_tick",
+    }
+
+    def __init__(self, blueprint: carla.ActorBlueprint) -> None:
+        super().__init__(blueprint)
+
+    @staticmethod
+    def from_blueprint(blueprint: CarlaBlueprint) -> CarlaDepthBlueprint:
+        has_attribute = [
+            blueprint.contains(attribute)
+            for attribute in CarlaDepthBlueprint.ATTRIBUTES
+        ]
+        if not all(has_attribute):
+            missing_keys = [
+                attribute
+                for attribute in CarlaDepthBlueprint.ATTRIBUTES
+                if not blueprint.contains(attribute)
+            ]
+            raise Exception(
+                f"Cannot downcast the blueprint to RGB blueprint because it does not have the following keys: {missing_keys}"
+            )
+        return CarlaDepthBlueprint(blueprint.blueprint)
