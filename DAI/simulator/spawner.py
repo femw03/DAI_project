@@ -14,7 +14,13 @@ import carla
 
 import logging
 import random
-from .wrappers import CarlaClient, CarlaVehicle, CarlaWalker, CarlaActor
+from .wrappers import (
+    CarlaClient,
+    CarlaVehicle,
+    CarlaWalker,
+    CarlaActor,
+    DestroyActorCommand,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -117,11 +123,18 @@ def spawn_walkers(
     return walkers
 
 
-def delete_actors(actors: List[CarlaActor]) -> None:
+def delete_actors(client: CarlaClient, actors: List[CarlaActor]) -> None:
     logger.info(f"deleting {len(actors)}")
-    for actor in actors:
-        logger.debug(f"Deleting ${actor.actor}")
-        actor.destroy()
+    # for actor in actors:
+    #     try:
+    #         logger.debug(f"Deleting ${actor.actor}")
+    #         actor.destroy()
+    #     except Exception as e:
+    #         logger.error(f"Exception occured while deleting: {actor}: {e}")
+    results = client.apply_batch_sync([DestroyActorCommand(actor) for actor in actors])
+    for result in results:
+        if result.error is not None:
+            logger.warning(result.error)
 
     # finally:
     #     print("\ndestroying %d vehicles" % len(vehicles_list))

@@ -1,8 +1,11 @@
 from __future__ import annotations
-from typing import Optional
+from dataclasses import dataclass
+from typing import List, Optional, Callable
 
 import carla
 import logging
+
+import numpy as np
 
 from .carla_blueprint import CarlaBlueprintLibrary, CarlaBlueprint
 from .carla_utils import CarlaLocation
@@ -63,7 +66,7 @@ class CarlaWorld:
         try:
             if self._pededstrian_crossing_factor is None:
                 logger.warning(
-                    f"The pedestrian crossing factor was not yet set while attempting to spawn a pedestrian"
+                    "The pedestrian crossing factor was not yet set while attempting to spawn a pedestrian"
                 )
             vehicle = self.world.spawn_actor(blueprint.blueprint, location)
         except Exception as e:
@@ -96,6 +99,39 @@ class CarlaWorld:
     def pedestrian_crossing_factor(self, value: float) -> None:
         self.world.set_pedestrians_cross_factor(value)
         self._pededstrian_crossing_factor = value
+
+    @property
+    def settings(self) -> carla.WorldSettings:
+        return self.world.get_settings()
+
+    @settings.setter
+    def settings(self, value: carla.WorldSettings) -> None:
+        assert isinstance(value, carla.WorldSettings)
+        self.world.apply_settings(value)
+
+    @property
+    def synchronous_mode(self) -> bool:
+        return self.settings.synchronous_mode
+
+    @property
+    def delta_seconds(self) -> Optional[float]:
+        """The amount of delt seconds that pass between ticks, None means it is variable"""
+        delta: float = self.settings.fixed_delta_seconds
+        return None if delta == 0.0 else delta
+
+    @delta_seconds.setter
+    def delta_seconds(self, value: Optional[float]):
+        logger.info(f"Setting world delta seconds to {value}")
+        settings = self.settings
+        settings.fixed_delta_seconds = value if value is not None else 0.0
+        self.settings = settings
+
+    @synchronous_mode.setter
+    def synchronous_mode(self, value: bool) -> None:
+        logger.info(f"Setting synchronous mode to: {value}")
+        settings = self.settings
+        settings.synchronous_mode = value
+        self.settings = settings
 
 
 class CarlaMap:
@@ -184,6 +220,7 @@ class CarlaVehicle(CarlaActor):
             vehicle, carla.Vehicle
         ), f"Instantiate CarlaVehicle with a vehicle instead of {type(vehicle)}"
         self._autopilot = False
+        self.sensors: List[CarlaSensor] = []
 
     @property
     def autopilot(self) -> bool:
@@ -193,3 +230,80 @@ class CarlaVehicle(CarlaActor):
     def autopilot(self, value: bool) -> None:
         self.actor.set_autopilot(value)
         self._autopilot = value
+
+    def add_camera(
+        self,
+        sensor_blueprint: CarlaBlueprint,
+        location: carla.Location = carla.Location(2, 0, 1),
+        rotation: carla.Rotation = carla.Rotation(0, 0, 0),
+    ) -> CarlaCamera:
+        actor = self.world.spawn_actor(
+            sensor_blueprint, carla.Transform(location, rotation), parent=self
+        )
+        sensor = CarlaCamera(actor.actor, self.world, self)
+        self.sensors.append(sensor)
+        return sensor
+
+    def destroy(self) -> bool:
+        for sensor in self.sensors:
+            sensor.stop()
+            sensor.destroy()
+        return super().destroy()
+
+
+class CarlaSensor(CarlaActor):
+    """A sensor often attached to a vehicle"""
+
+    def __init__(
+        self, sensor: carla.Sensor, world: CarlaWorld, vehicle: CarlaVehicle
+    ) -> None:
+        super().__init__(sensor, world)
+        assert isinstance(
+            sensor, carla.Sensor
+        ), f"Initiate CarlaSensor with carla.Sensor and not {type(sensor)}"
+        self.vehicle = vehicle
+
+    def stop(self) -> None:
+        self.actor.stop()
+
+
+class CarlaCamera(CarlaSensor):
+    """A special type of sensor"""
+
+    def __init__(
+        self, sensor: carla.Sensor, world: CarlaWorld, vehicle: CarlaVehicle
+    ) -> None:
+        super().__init__(sensor, world, vehicle)
+
+    def listen(self, callback: Callable[[CarlaImage], None]) -> None:
+        def convert_and_listen(image: carla.Image) -> None:
+            logger.debug("received image")
+            converted = CarlaImage.from_native(image)
+            callback(converted)
+
+        self.actor.listen(convert_and_listen)
+        assert self.actor.is_listening
+
+
+@dataclass
+class CarlaImage:
+    fov: float
+    height: int
+    width: int
+    raw_data: List[int]
+    """Flattened array of bytes, use reshape according to width and height"""
+
+    @staticmethod
+    def from_native(carla_image: carla.Image):
+        assert isinstance(carla_image, carla.Image)
+        return CarlaImage(
+            carla_image.fov, carla_image.height, carla_image.width, carla_image.raw_data
+        )
+
+    @property
+    def numpy_image(self) -> np.ndarray:
+        array = np.frombuffer(self.raw_data, dtype=np.dtype("uint8"))
+        array = np.reshape(array, (self.height, self.width, 4))  # Reshape into RGBA
+        array = array[:, :, :3]
+        array = array[:, :, ::-1]
+        return array

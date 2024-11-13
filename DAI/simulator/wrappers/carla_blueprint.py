@@ -48,3 +48,71 @@ class CarlaBlueprint:
 
     def __repr__(self) -> str:
         return self.blueprint.id
+
+
+class CarlaRGBBlueprint(CarlaBlueprint):
+    """A carla RGB blueprint check attributes to see what attributes are available"""
+
+    ATTRIBUTES = {
+        "black_clip",
+        "blade_count",
+        "bloom_intensity",
+        "blur_amount",
+        "blur_radius",
+        "calibration_constant",
+        "chromatic_aberration_intensity",
+        "chromatic_aberration_offset",
+        "enable_postprocess_effects",
+        "exposure_compensation",
+        "exposure_max_bright",
+        "exposure_min_bright",
+        "exposure_mode",
+        "exposure_speed_down",
+        "exposure_speed_up",
+        "focal_distance",
+        "fov",
+        "fstop",
+        "gamma",
+        "image_size_x",
+        "image_size_y",
+        "iso",
+        "lens_circle_falloff",
+        "lens_circle_multiplier",
+        "lens_flare_intensity",
+        "lens_k",
+        "lens_kcube",
+        "lens_x_size",
+        "lens_y_size",
+        "min_fstop",
+        "motion_blur_intensity",
+        "motion_blur_max_distortion",
+        "motion_blur_min_object_screen_size",
+        "role_name",
+        "sensor_tick",
+        "shoulder",
+        "shutter_speed",
+        "slope",
+        "temp",
+        "tint",
+        "toe",
+        "white_clip",
+    }
+
+    def __init__(self, blueprint: carla.ActorBlueprint) -> None:
+        super().__init__(blueprint)
+
+    @staticmethod
+    def from_blueprint(blueprint: CarlaBlueprint) -> CarlaRGBBlueprint:
+        has_attribute = [
+            blueprint.contains(attribute) for attribute in CarlaRGBBlueprint.ATTRIBUTES
+        ]
+        if not all(has_attribute):
+            missing_keys = [
+                attribute
+                for attribute in CarlaRGBBlueprint.ATTRIBUTES
+                if not blueprint.contains(attribute)
+            ]
+            raise Exception(
+                f"Cannot downcast the blueprint to RGB blueprint because it does not have the following keys: {missing_keys}"
+            )
+        return CarlaRGBBlueprint(blueprint.blueprint)

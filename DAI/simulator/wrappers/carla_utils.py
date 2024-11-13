@@ -1,6 +1,5 @@
-
 from __future__ import annotations
-from typing import Any, Optional
+from typing import Any, Optional, Type
 
 import carla
 import logging
@@ -16,6 +15,7 @@ from dataclasses import dataclass
 SPAWN_ACTOR = carla.command.SpawnActor
 FUTURE_ACTOR = carla.command.FutureActor
 SET_AUTO_PILOT = carla.command.SetAutopilot
+DESTROY_ACTOR = carla.command.DestroyActor
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class CarlaCommand(ABC):
 
     @property
     def reduced(self) -> carla.command:
-        next_command = self
+        next_command = self.next
         base = self.command
         while next_command is not None:
             base = base.then(next_command.command)
@@ -65,20 +65,24 @@ class SpawnActorCommand(CarlaCommand):
 
 class SetAutoPiloteCommand(CarlaCommand):
     def __init__(self, setActive: bool) -> None:
-        super().__init__(
-            SET_AUTO_PILOT(FUTURE_ACTOR, setActive)
-        )
+        super().__init__(SET_AUTO_PILOT(FUTURE_ACTOR, setActive))
+
+
+class DestroyActorCommand(CarlaCommand):
+    def __init__(self, actor: Type["CarlaActor"]) -> None:  # type: ignore  # noqa: F821
+        super().__init__(DESTROY_ACTOR(actor.actor))
+
 
 @dataclass
 class CarlaLocation:
     x: float
     y: float
     z: float
-    
+
     @staticmethod
     def from_native(location: carla.Location) -> CarlaLocation:
         return CarlaLocation(location.x, location.y, location.z)
-    
+
     @property
     def native(self) -> carla.Location:
         return carla.Location(self.x, self.y, self.z)

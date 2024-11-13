@@ -1,7 +1,8 @@
-from DAI.simulator.wrappers.carla_client import CarlaClient
+from DAI.simulator import World
 
 import logging
 
 logging.basicConfig(level=logging.INFO)
-
-print(CarlaClient().version)
+world = World()
+print(world)
+world.start()
