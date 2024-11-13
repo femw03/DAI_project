@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 from typing import Any, Optional
 
@@ -7,6 +8,7 @@ import logging
 from .carla_blueprint import CarlaBlueprint
 
 from abc import ABC
+from dataclasses import dataclass
 
 # Import must be done like this, otherwise the following import error occurs:
 # ModuleNotFoundError: No module named 'carla.libcarla.command'
@@ -43,9 +45,10 @@ class CarlaCommand(ABC):
             next_command = next_command.next
 
         next_command.next = command
+        return self
 
     @property
-    def reduces(self) -> carla.command:
+    def reduced(self) -> carla.command:
         next_command = self
         base = self.command
         while next_command is not None:
@@ -56,12 +59,26 @@ class CarlaCommand(ABC):
 
 class SpawnActorCommand(CarlaCommand):
     def __init__(self, blueprint: CarlaBlueprint, location: carla.Transform) -> None:
-        command = carla.command.SpawnActor(blueprint.blueprint, location)
+        command = SPAWN_ACTOR(blueprint.blueprint, location)
         super().__init__(command)
 
 
 class SetAutoPiloteCommand(CarlaCommand):
     def __init__(self, setActive: bool) -> None:
         super().__init__(
-            carla.command.SetAutoPilot(carla.command.FutureActor, setActive)
+            SET_AUTO_PILOT(FUTURE_ACTOR, setActive)
         )
+
+@dataclass
+class CarlaLocation:
+    x: float
+    y: float
+    z: float
+    
+    @staticmethod
+    def from_native(location: carla.Location) -> CarlaLocation:
+        return CarlaLocation(location.x, location.y, location.z)
+    
+    @property
+    def native(self) -> carla.Location:
+        return carla.Location(self.x, self.y, self.z)

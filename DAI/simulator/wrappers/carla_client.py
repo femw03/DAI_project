@@ -3,12 +3,12 @@ import carla
 import os
 import logging
 
-from .carla_world import CarlaWorld
-from .carla_command import CarlaCommand, CarlaCommandResponse
+from .carla_core import CarlaWorld
+from .carla_utils import CarlaCommand, CarlaCommandResponse
 
 logger = logging.getLogger(__name__)
 
-IS_DOCKER = os.environ["IS_CONTAINER"] == "TRUE"
+IS_DOCKER = "IS_CONTAINER" in os.environ and os.environ["IS_CONTAINER"] == "TRUE"
 
 
 class CarlaClient:

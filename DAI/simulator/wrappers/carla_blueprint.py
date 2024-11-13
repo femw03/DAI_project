@@ -4,6 +4,7 @@ from typing import List
 import carla
 import logging
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,6 +41,10 @@ class CarlaBlueprint:
 
     def contains(self, id: str) -> bool:
         return self.blueprint.has_attribute(id)
+
+    @property
+    def tags(self) -> List[str]:
+        return self.blueprint.tags
 
     def __repr__(self) -> str:
         return self.blueprint.id
