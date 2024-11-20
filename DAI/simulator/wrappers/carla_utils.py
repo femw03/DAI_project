@@ -1,13 +1,12 @@
 from __future__ import annotations
-from typing import Any, Optional, Type
-
-import carla
-import logging
-
-from .carla_blueprint import CarlaBlueprint
 
 from abc import ABC
 from dataclasses import dataclass
+from typing import Any, Optional, Type
+
+import carla
+
+from .carla_blueprint import CarlaBlueprint
 
 # Import must be done like this, otherwise the following import error occurs:
 # ModuleNotFoundError: No module named 'carla.libcarla.command'
@@ -16,8 +15,6 @@ SPAWN_ACTOR = carla.command.SpawnActor
 FUTURE_ACTOR = carla.command.FutureActor
 SET_AUTO_PILOT = carla.command.SetAutopilot
 DESTROY_ACTOR = carla.command.DestroyActor
-
-logger = logging.getLogger(__name__)
 
 
 class CarlaCommandResponse:

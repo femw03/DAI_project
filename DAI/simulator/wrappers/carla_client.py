@@ -1,12 +1,11 @@
-from typing import List, Literal, Optional, Tuple
-import carla
 import os
-import logging
+from typing import List, Literal, Optional, Tuple
+
+import carla
+from loguru import logger
 
 from .carla_core import CarlaWorld
 from .carla_utils import CarlaCommand, CarlaCommandResponse
-
-logger = logging.getLogger(__name__)
 
 IS_DOCKER = "IS_CONTAINER" in os.environ and os.environ["IS_CONTAINER"] == "TRUE"
 
@@ -53,9 +52,6 @@ class CarlaClient:
 
 
 def main():
-    import sys
-
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     client = CarlaClient()
     print(client.version)
 

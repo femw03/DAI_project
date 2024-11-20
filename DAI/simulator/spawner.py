@@ -8,21 +8,20 @@
 
 """Spawn NPCs into the simulation"""
 
+import logging
+import random
 from typing import List
 
 import carla
+from loguru import logger
 
-import logging
-import random
 from .wrappers import (
+    CarlaActor,
     CarlaClient,
     CarlaVehicle,
     CarlaWalker,
-    CarlaActor,
     DestroyActorCommand,
 )
-
-logger = logging.getLogger(__name__)
 
 
 def spawn_vehicles(client: CarlaClient, vehicle_target: int = 10) -> List[CarlaVehicle]:

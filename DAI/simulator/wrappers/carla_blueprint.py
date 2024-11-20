@@ -1,11 +1,9 @@
 from __future__ import annotations
+
 from typing import List
 
 import carla
-import logging
-
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class CarlaBlueprintLibrary:

@@ -37,14 +37,14 @@ class CarlaBridge(ABC):
     When an image is created self.onImageReceived is called
     """
 
-    def __init__(self, onImageReceived: DataReceivedCallBack) -> None:
+    def __init__(self, on_image_received: DataReceivedCallBack) -> None:
         """Create an instance of CarlaBridge
 
         Args:
             onImageReceived (Callable[[Image], None]): Called when Carla emits an image
         """
         super().__init__()
-        self.onImageReceived = onImageReceived
+        self.on_image_received = on_image_received
 
     @abstractmethod
     def _add_image(self, image: Image, lidar: Lidar) -> None:
@@ -63,7 +63,7 @@ class CarlaBridge(ABC):
             image (Image): the image that is added to the buffer
         """
         self._add_image(image, lidar)
-        self.onImageReceived(image, lidar)
+        self.on_image_received(image, lidar)
 
     @abstractmethod
     def set_speed(speed: float) -> None:

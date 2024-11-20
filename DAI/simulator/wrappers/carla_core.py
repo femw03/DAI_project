@@ -1,16 +1,14 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import List, Optional, Callable
+from typing import Callable, List, Optional
 
 import carla
-import logging
-
 import numpy as np
+from loguru import logger
 
-from .carla_blueprint import CarlaBlueprintLibrary, CarlaBlueprint
+from .carla_blueprint import CarlaBlueprint, CarlaBlueprintLibrary
 from .carla_utils import CarlaLocation
-
-logger = logging.getLogger(__name__)
 
 
 class CarlaWorld:

@@ -1,14 +1,19 @@
-import logging
+import sys
+import time
 from typing import List
 
 import cv2
 import numpy as np
+from loguru import logger
 
 from DAI.cv import ComputerVisionModule
 from DAI.interfaces.interfaces import Image, Object
 from DAI.simulator import NumpyImage, NumpyLidar, World
+from DAI.visuals import Visuals
 
 font = cv2.FONT_HERSHEY_SIMPLEX
+logger.remove()
+logger.add(sys.stderr, level="INFO")
 
 
 def onImageReceived(*args) -> None:
@@ -35,13 +40,20 @@ def onProcessingFinished(objects: List[Object], image: Image) -> None:  # noqa: 
     cv2.imwrite("out.png", image_bytes)
 
 
-logging.basicConfig(level=logging.INFO)
-world = World(onImageReceived=onImageReceived)
-print(world)
+visuals = Visuals(640, 480, 30, on_quit=quit)
+world = World(
+    on_rgb_received=visuals.set_rgb_image,
+    on_image_received=lambda *args: print("data for agent"),
+    view_height=visuals.height,
+    view_width=visuals.width,
+)
 
-cv = ComputerVisionModule(onProcessingFinished=onProcessingFinished, FOV=world.view_FOV)
-print(cv)
-image = NumpyImage(cv2.imread("image11.png"))
-lidar = NumpyLidar(np.empty_like(image.get_image_bytes())[:, :, 0])
-cv.on_data_received(image=image, lidar=lidar, current_speed=0)
-# world.start()
+
+visuals.on_quit = world.stop
+
+world.start()
+
+visuals.start()
+
+world.join()
+visuals.join()

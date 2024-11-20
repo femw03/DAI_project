@@ -7,6 +7,7 @@ requires-python = "==3.8.20"
 dependencies = [
     "carla>=0.9.15",
     "lightning>=2.3.3",
+    "loguru>=0.7.2",
     "numpy>=1.24.4",
     "opencv-python>=4.10.0.84",
     "pillow>=10.4.0",
