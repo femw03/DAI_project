@@ -6,8 +6,12 @@ readme = "README.md"
 requires-python = "==3.8.20"
 dependencies = [
     "carla>=0.9.15",
+    "lightning>=2.3.3",
     "numpy>=1.24.4",
+    "opencv-python>=4.10.0.84",
+    "pillow>=10.4.0",
     "pygame>=2.6.1",
+    "ultralytics>=8.3.29",
 ]
 
 [dependency-groups]

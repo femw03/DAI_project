@@ -1,28 +1,35 @@
 from __future__ import annotations
+
 import logging
+import os
 import random
-from typing import Optional, List
+from typing import Callable, List, Optional
+
+import carla
 import numpy as np
 import pygame
 import pygame.locals
-from .spawner import spawn_vehicles, spawn_walkers, delete_actors
-from .wrappers import (
-    CarlaClient,
-    CarlaVehicle,
-    CarlaRGBBlueprint,
-    CarlaImage,
-    CarlaActor,
-    CarlaDepthBlueprint,
-)
 
-import os
+from ..interfaces import CarlaBridge, Image, Lidar
+from ..platform import list_tiger_vnc_displays
+from .numpy_image import NumpyImage, NumpyLidar
+from .spawner import delete_actors, spawn_vehicles, spawn_walkers
+from .wrappers import (
+    CarlaActor,
+    CarlaClient,
+    CarlaDepthBlueprint,
+    CarlaImage,
+    CarlaRGBBlueprint,
+    CarlaVehicle,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class World:
+class World(CarlaBridge):
     def __init__(
         self,
+        onImageReceived: Callable[[Image, Lidar]],
         framerate=30,
         host="127.0.0.1",
         port=2000,
@@ -32,7 +39,8 @@ class World:
         walkers=50,
         cars=10,
     ) -> None:
-        self.framerate = 30
+        super().__init__(onImageReceived=onImageReceived)
+        self.framerate = framerate
         self.view_width = view_width
         self.view_height = view_height
         self.view_FOV = view_FOV
@@ -46,6 +54,9 @@ class World:
         self.client = CarlaClient(port=2000)
         self.car: Optional[CarlaVehicle] = None
         self.all_actors: List[CarlaActor] = []
+        self.sentRGB: Optional[Image] = None
+        self.sentDepth: Optional[Image] = None
+        self.is_processing = False
 
     def setup_car(self):
         world = self.client.world
@@ -79,16 +90,21 @@ class World:
         self.depth_camera = self.car.add_camera(depth_camera_bp)
 
         def save_depth_image(image: CarlaImage):
-            depth_data = image.to_depth()
-            self.depth_image = np.stack(
-                [depth_data.reshape([image.width, image.height])] * 3, axis=-1
-            )
+            image.native.save_to_disk("test.data", carla.ColorConverter.Raw)
+            # depth_data = image.to_depth()
+            # self.depth_image = np.stack(
+            #     [depth_data.reshape([image.width, image.height])] * 3, axis=-1
+            # )
+            self.depth_image = np.empty((self.view_width, self.view_height))
 
         self.depth_camera.listen(save_depth_image)
 
     def setup(self):
-        logger.info("Using display 1")
-        os.environ["DISPLAY"] = ":1"
+        display = list_tiger_vnc_displays()
+        if len(display) == 0:
+            raise RuntimeError("No screens where available to attach to")
+        logger.info(f"Using display {display[0]}")
+        os.environ["DISPLAY"] = display[0]
         world = self.client.world
         world.delta_seconds = 1 / self.framerate
         world.synchronous_mode = True
@@ -138,10 +154,31 @@ class World:
                     display_rgb = not display_rgb
                 framecount += 1
 
+                if (
+                    self.sentRGB is None
+                    and self.sentDepth is None
+                    and self.rgb_image is not None
+                    and self.depth_image is not None
+                ):
+                    logger.info("Sending an observation")
+                    self.add_image(
+                        image=NumpyImage(self.rgb_image),
+                        lidar=NumpyLidar(
+                            self.depth_image
+                        ),  # TODO replace with depth data
+                    )
+
         finally:
             self.client.world.synchronous_mode = False
             delete_actors(self.client, self.all_actors)
             pygame.quit()
+
+    def _add_image(self, image: Image, lidar: Lidar) -> None:
+        self.sentDepth = lidar
+        self.sentRGB = image
+
+    def set_speed(speed: float) -> None:
+        pass  # TODO control speed of car.
 
 
 def convert_image(image_array, width, height) -> np.ndarray:
