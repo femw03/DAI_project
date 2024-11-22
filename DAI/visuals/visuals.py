@@ -1,3 +1,5 @@
+"""Contains the Definition of The Visuals class"""
+
 from __future__ import annotations
 
 import os

@@ -9,7 +9,7 @@ import numpy as np
 from loguru import logger
 from pygame.time import Clock
 
-from ..interfaces import CarlaData, CarlaWorld
+from ..interfaces import CarlaData, World
 from .numpy_image import NumpyImage, NumpyLidar
 from .spawner import delete_actors, spawn_vehicles, spawn_walkers
 from .wrappers import (
@@ -22,7 +22,12 @@ from .wrappers import (
 )
 
 
-class World(Thread, CarlaWorld):
+class CarlaWorld(Thread, World):
+    """
+    Bindings for the Carla simulator. Will spawn the walkers, cars and ego_vehicle on start call.
+    The simulator is updated in it's own thread so that a similarity to real time simulation is achieved
+    """
+
     def __init__(
         self,
         tickrate=30,
@@ -34,7 +39,7 @@ class World(Thread, CarlaWorld):
         walkers=50,
         cars=10,
     ) -> None:
-        CarlaWorld.__init__(self)
+        World.__init__(self)
         Thread.__init__(self)
         self.tickrate = tickrate
         self.view_width = view_width
@@ -52,6 +57,7 @@ class World(Thread, CarlaWorld):
         self.all_actors: List[CarlaActor] = []
 
     def setup_car(self):
+        """Spawns the car and attaches the rgb- and depth camera to it and setups their listeners"""
         world = self.client.world
         car_bp = world.blueprint_library.filter("vehicle.*")[0]
         location = random.choice(world.map.spawn_points)
@@ -93,6 +99,7 @@ class World(Thread, CarlaWorld):
         self.depth_camera.listen(save_depth_image)
 
     def setup(self):
+        """Spawns the car and external actors"""
         world = self.client.world
         world.delta_seconds = 1 / self.tickrate
         world.synchronous_mode = True
@@ -137,11 +144,3 @@ class World(Thread, CarlaWorld):
     def stop(self) -> None:
         logger.info("Stopping simulation")
         self.loop_running = False
-
-
-def convert_image(image_array, width, height) -> np.ndarray:
-    array = np.frombuffer(image_array, dtype=np.dtype("uint8"))
-    array = np.reshape(array, (height, width, 4))
-    array = array[:, :, :3]
-    array = array[:, :, ::-1]
-    return array

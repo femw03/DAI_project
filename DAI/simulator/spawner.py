@@ -1,12 +1,4 @@
-#!/usr/bin/env python
-
-# Copyright (c) 2019 Computer Vision Center (CVC) at the Universitat Autonoma de
-# Barcelona (UAB).
-#
-# This work is licensed under the terms of the MIT license.
-# For a copy, see <https://opensource.org/licenses/MIT>.
-
-"""Spawn NPCs into the simulation"""
+"""Contains functions to spawn vehicles and actors as well as destroying a list of actors"""
 
 import logging
 import random
@@ -25,6 +17,7 @@ from .wrappers import (
 
 
 def spawn_vehicles(client: CarlaClient, vehicle_target: int = 10) -> List[CarlaVehicle]:
+    """Spawns vehicle_target amount of random auto_piloted cars in the world. If a car is already present it will not be spawned"""
     logger.info(f"attempting to spawn {vehicle_target} cars")
     world = client.world
     assert world is not None, "Make sure you have loaded a world"

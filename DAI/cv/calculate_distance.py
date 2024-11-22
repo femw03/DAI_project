@@ -1,3 +1,7 @@
+"""
+Contains helper functions to determine certain attributes from given depth information and bounding boxes
+"""
+
 from dataclasses import dataclass
 from typing import List, Literal, Tuple
 
@@ -16,7 +20,10 @@ class ObjectDistance:
 def calculate_object_distance(
     depth_image: np.ndarray, bounding_box: BoundingBox
 ) -> ObjectDistance:
-    """Takes a depth image (width, height) and calculates the location (x,y) and value of the brightest pixel in the ROI defined by the bounding_box"""
+    """
+    Takes a depth image (width, height) and calculates the location (x,y)
+    and value of the brightest pixel in the ROI defined by the bounding_box
+    """
     kernal_size = 5
     sigma = 1.5
     # Region of interest - bounding box coordinates
@@ -144,6 +151,7 @@ def calculate_anlge(x: float, FOV: float, width: float) -> float:
 
 
 def depth_image_to_meters(depth_image: np.ndarray) -> np.ndarray:
+    # TODO move to NumpyLidar
     # Check the shape of the image
     if depth_image.shape[2] != 3:
         raise ValueError("The depth image must have 3 channels (RGB).")

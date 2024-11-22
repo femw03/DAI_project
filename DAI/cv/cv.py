@@ -3,7 +3,6 @@ from typing import Dict, List
 
 import torch
 from lightning import Trainer
-from torch.utils.data import DataLoader
 from ultralytics import YOLO
 
 from ..interfaces import (
@@ -11,12 +10,11 @@ from ..interfaces import (
     CarlaData,
     CarlaFeatures,
     ComputerVisionModule,
-    Image,
     Object,
     ObjectType,
 )
 from .calculate_distance import calculate_anlge, calculate_object_distance
-from .traffic_sign_classification import TRANSFORM, CNNModel, ImageDataset, TrafficSign
+from .traffic_sign_classification import TrafficSign, TrafficSignClassifier
 
 
 class ComputerVisionModuleImp(ComputerVisionModule):
@@ -37,16 +35,18 @@ class ComputerVisionModuleImp(ComputerVisionModule):
             os.path.dirname(os.path.abspath(__file__)), "weights"
         )
         self.big_net = YOLO(os.path.join(current_dir, "big_net.pt"), task="detect")
-        self.traffic_sign_classifier = CNNModel(
+        self.traffic_sign_classifier = TrafficSignClassifier(
             model=torch.load(os.path.join(current_dir, "traffic_sign.pth"))
         )
         self.lightning_trainer = Trainer(logger=False)
 
     def process_data(self, data: CarlaData) -> CarlaFeatures:
+        # Use the big net to detect objects generally
         results = self.big_net.predict(
             data.rgb_image.get_image_bytes(), half=True, device="cuda:0"
         )
 
+        # Convert the YOLO Results to a list of Objects
         detected: List[Object] = []
         result = results[0]
         probabilities: List[float] = result.boxes.conf.tolist()
@@ -78,12 +78,19 @@ class ComputerVisionModuleImp(ComputerVisionModule):
                     boundingBox=bounding_box,
                 )
             )
+
+        # Use the traffic sign classifier to get more details about the traffic signs
         traffic_signs = [
             detected_object
             for detected_object in detected
             if detected_object.type == ObjectType.TRAFFIC_SIGN
         ]
-        traffic_signs = self.classifiy_traffic_sign(traffic_signs, data.rgb_image)
+        traffic_signs = TrafficSignClassifier.classify(
+            self.lightning_trainer,
+            self.traffic_sign_classifier,
+            traffic_signs,
+            data.rgb_image,
+        )
         max_speed = TrafficSign.speed_limit(traffic_signs)
 
         return CarlaFeatures(
@@ -91,19 +98,3 @@ class ComputerVisionModuleImp(ComputerVisionModule):
             current_speed=data.current_speed,
             max_speed=max_speed,
         )
-
-    def classifiy_traffic_sign(
-        self, traffic_signs: List[Object], image: Image
-    ) -> List[TrafficSign]:
-        """For each traffic sign in the list, snip it out of the image and pass it to the classifier network"""
-        image_bytes = image.get_image_bytes()
-        bounding_boxes = [traffic_sign.boundingBox for traffic_sign in traffic_signs]
-        image_snips = [
-            image_bytes[box.x1 : box.x2, box.y1 : box.y2, :] for box in bounding_boxes
-        ]
-        loader = DataLoader(
-            ImageDataset(data=image_snips, transform=TRANSFORM),
-            batch_size=len(traffic_signs),
-        )
-        results = self.lightning_trainer.predict(self.traffic_sign_classifier, loader)
-        return results

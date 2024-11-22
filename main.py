@@ -4,12 +4,12 @@ import time
 from loguru import logger
 
 from DAI.cv import ComputerVisionModuleImp
-from DAI.interfaces.interfaces import (
+from DAI.interfaces import (
     CarlaData,
     CarlaFeatures,
     CruiseControlAgent,
 )
-from DAI.simulator import World
+from DAI.simulator import CarlaWorld
 from DAI.visuals import Visuals
 
 
@@ -27,7 +27,7 @@ visuals = Visuals(640, 480, 30)
 cv = ComputerVisionModuleImp()
 agent = MockCruiseControlAgent()
 
-world = World(
+world = CarlaWorld(
     view_height=visuals.height,
     view_width=visuals.width,
 )

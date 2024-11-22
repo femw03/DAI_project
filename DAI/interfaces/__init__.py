@@ -1,11 +1,12 @@
-from .interfaces import (
-    BoundingBox,  # noqa: F401
-    CarlaData,  # noqa: F401
-    CarlaFeatures,  # noqa: F401
-    CarlaWorld,  # noqa: F401
-    ComputerVisionModule,  # noqa: F401
-    Image,  # noqa: F401
-    Lidar,  # noqa: F401
-    Object,  # noqa: F401
-    ObjectType,  # noqa: F401
+"""Module that defines abstract types to be used throughout the whole module"""
+
+from .data_carriers import (  # noqa: F401
+    BoundingBox,
+    CarlaData,
+    CarlaFeatures,
+    Object,
+    ObjectType,
 )
+from .image import Image, Lidar  # noqa: F401
+from .system import ComputerVisionModule, CruiseControlAgent  # noqa: F401
+from .world import World  # noqa: F401

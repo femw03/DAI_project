@@ -1,3 +1,5 @@
+"""Contains helper functions to enhance visualisations"""
+
 from typing import List
 
 import cv2

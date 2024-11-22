@@ -1,3 +1,7 @@
+"""
+This file contains all code pertaining to traffic SIGN classification.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,9 +13,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from PIL import Image
-from torch.utils.data import Dataset
+from PIL import Image as PILImage
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
+
+from ..interfaces import Image, Object
 
 TRANSFORM = transforms.Compose(
     [
@@ -20,11 +26,33 @@ TRANSFORM = transforms.Compose(
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ]
 )
-"""The transform that need be used for the classifier"""
+"""The transform that need be used for the classifier, is the same as the one it was trained on"""
+
+
+class ImageDataset(Dataset):
+    """A custom dataset to handle in memory numpy image representations"""
+
+    def __init__(self, data: list[np.ndarray], transform=None):
+        self.data = data
+        self.transform = transform
+
+    def __getitem__(self, index):
+        x = self.data[index]
+
+        if self.transform:
+            x = PILImage.fromarray(self.data[index].astype(np.uint8).transpose(1, 2, 0))
+            x = self.transform(x)
+
+        return x
+
+    def __len__(self):
+        return len(self.data)
 
 
 @dataclass
 class TrafficSign:
+    """A class containing the traffic sign classification result"""
+
     type: TrafficSignType
     confidence: float
 
@@ -40,6 +68,8 @@ class TrafficSign:
 
 
 class TrafficSignType(Enum):
+    """An enum containing all Traffic sign classification types and their encoded meaning"""
+
     BACK = ("back", 0, None)
     SPEED_30 = ("speed_30", 1, 30)
     SPEED_A_30 = ("speed_limit_30", 4, 30)
@@ -60,6 +90,7 @@ class TrafficSignType(Enum):
 
     @classmethod
     def from_index(cls, index: int):
+        """Get the enum from their classifier label index"""
         for sign in cls:
             if sign.index == index:
                 return sign
@@ -67,6 +98,13 @@ class TrafficSignType(Enum):
 
 
 class ConvolutionalClassifier(nn.Module):
+    """
+    A general description of the convolutional network for classification
+    side note:
+        This is seperated from CNNModel because it was trained without pytorch which resulted
+        in the weight file being incompatible.
+    """
+
     def __init__(self):
         super().__init__()
         self.conv1 = nn.Conv2d(3, 32, 3, padding=1)
@@ -84,7 +122,13 @@ class ConvolutionalClassifier(nn.Module):
         return F.log_softmax(x, dim=1)
 
 
-class CNNModel(L.LightningModule):
+class TrafficSignClassifier(L.LightningModule):
+    """
+    A pytorch lightning module for traffic_sign classification,
+    use torch.load to load in the correct ConvolutionalClassifier (see note).
+    only the predict step is implemented
+    """
+
     def __init__(self, model: ConvolutionalClassifier):
         super().__init__()
         self.model = model
@@ -109,20 +153,22 @@ class CNNModel(L.LightningModule):
         ]
         return result
 
-
-class ImageDataset(Dataset):
-    def __init__(self, data: list[np.ndarray], transform=None):
-        self.data = data
-        self.transform = transform
-
-    def __getitem__(self, index):
-        x = self.data[index]
-
-        if self.transform:
-            x = Image.fromarray(self.data[index].astype(np.uint8).transpose(1, 2, 0))
-            x = self.transform(x)
-
-        return x
-
-    def __len__(self):
-        return len(self.data)
+    @staticmethod
+    def classify(
+        trainer: L.Trainer,
+        model: TrafficSignClassifier,
+        traffic_signs: List[Object],
+        image: Image,
+    ) -> List[TrafficSign]:
+        """For each traffic sign in the list, snip it out of the image and pass it to the classifier network"""
+        image_bytes = image.get_image_bytes()
+        bounding_boxes = [traffic_sign.boundingBox for traffic_sign in traffic_signs]
+        image_snips = [
+            image_bytes[box.x1 : box.x2, box.y1 : box.y2, :] for box in bounding_boxes
+        ]
+        loader = DataLoader(
+            ImageDataset(data=image_snips, transform=TRANSFORM),
+            batch_size=len(traffic_signs),
+        )
+        results = trainer.predict(model, loader)
+        return results
