@@ -1,14 +1,22 @@
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, List, final
+from typing import Callable, List, Optional, final
 
 import numpy as np
+from loguru import logger
 
 
 class Image(ABC):
+    def __init__(self, width: int, height: int, fov: int) -> None:
+        super().__init__()
+        self.width = width
+        self.height = height
+        self.fov = fov
+
     @abstractmethod
     def get_image_bytes(self) -> np.ndarray:
         """Get the data from an image as a numpy array. HWC format BGR [0, 255], (Height, Width, # Channels)
@@ -20,6 +28,12 @@ class Image(ABC):
 
 
 class Lidar(ABC):
+    def __init__(self, width: int, height: int, fov: int) -> None:
+        super().__init__()
+        self.width = width
+        self.height = height
+        self.fov = fov
+
     @abstractmethod
     def get_lidar_bytes(self) -> np.ndarray:
         """
@@ -27,52 +41,80 @@ class Lidar(ABC):
         """
 
 
-Speed = float
-DataReceivedCallBack = Callable[[Image, Lidar, Speed], None]
+@dataclass
+class CarlaData:
+    """A carrier object that represents the output of the [CarlaBridge]"""
+
+    rgb_image: Image
+    lidar_data: Lidar
+    current_speed: float
 
 
-class CarlaBridge(ABC):
+class CarlaWorld(ABC):
     """
     The bridge between Carla and the python environment.
-    When an image is created self.onImageReceived is called
+    The latest frame data will be present in self.data or can be listened to in by adding a callback
+    via self.add_listeners.
     """
 
-    def __init__(self, on_image_received: DataReceivedCallBack) -> None:
-        """Create an instance of CarlaBridge
-
-        Args:
-            onImageReceived (Callable[[Image], None]): Called when Carla emits an image
-        """
+    def __init__(self) -> None:
+        """Create an instance of CarlaBridge"""
         super().__init__()
-        self.on_image_received = on_image_received
-
-    @abstractmethod
-    def _add_image(self, image: Image, lidar: Lidar) -> None:
-        """Add an image to the internal buffer of the file
-
-        Args:
-            image (Image): an image
-        """
-        pass
+        self.__data_listeners: List[Callable[[CarlaData], None]] = []
+        self.__tick_listeners: List[Callable[[], None]] = []
+        self.data: CarlaData | None = None
+        self._speed: float = 0.5
 
     @final
-    def add_image(self, image: Image, lidar: Lidar) -> None:
-        """Adds an image to the internal buffer and calls self.onReceive
+    def _set_data(self, data: CarlaData) -> None:
+        """Sets self.data and notifies listeners
 
         Args:
             image (Image): the image that is added to the buffer
         """
-        self._add_image(image, lidar)
-        self.on_image_received(image, lidar)
+        self.data = data
+        for listener in self.__data_listeners:
+            listener(data)
 
-    @abstractmethod
-    def set_speed(speed: float) -> None:
-        """set the speed to the given float
+    @final
+    def set_speed(self, speed: float) -> None:
+        """Sets the ego vehicle speed"""
+        self._speed = speed
 
-        Args:
-            speed (float): gas between 0-1
-        """
-        pass
+    @final
+    def add_listener(self, callback: Callable[[CarlaData], None]) -> None:
+        self.__data_listeners.append(callback)
+
+    @final
+    def add_tick_listener(self, callback: Callable[[], None]) -> None:
+        self.__tick_listeners.append(callback)
+
+    @final
+    def remove_tick_listener(self, callback: Callable[[], None]) -> None:
+        try:
+            self.__tick_listeners.remove(callback)
+        except ValueError:
+            logger.warning("Tried to remove a listener that was not present")
+
+    @final
+    def await_next_tick(self) -> None:
+        """Blocks thread until the next tick has happened"""
+        has_ticked = False
+
+        def set_has_ticked():
+            global has_ticked
+            has_ticked = True
+
+        self.add_tick_listener(set_has_ticked)
+        while not has_ticked:
+            time.sleep(0)
+        self.remove_tick_listener(set_has_ticked)
+
+    @final
+    def _notify_tick_listeners(self) -> None:
+        """Notify all tick listeners, MUST be called after every world tick"""
+        for listener in self.__tick_listeners:
+            listener()
 
 
 @dataclass
@@ -121,47 +163,32 @@ class Object:
     """Lateral angle to the object in radians"""
 
 
-ProcessingFinishedCallBack = Callable[[Image, Lidar, List[Object], Speed, Speed], None]
-"""A callback that indicates the Computer Vision process finishing, returns the Image, Lidar, Detected Objects, Current Speed and Speed Limit"""
-
-
-class CVBridge(ABC):
+@dataclass
+class CarlaFeatures:
     """
-    This is the service that consumes images and returns a list of objects
+    This represents the set of features that needs to be extracted from [CarlaData]
+    This features are the input for the RL-agent
     """
 
-    def __init__(self, onProcessingFinished: ProcessingFinishedCallBack) -> None:
-        """Create an instance of the CVBridge where the onProcessingFinished function is called
-        When a picture is finished being processed into objects
+    objects: List[Object]
+    current_speed: float
+    max_speed: Optional[float]
 
-        Args:
-            onProcessingFinished (Callable[[List[Object]], None]): Called when the images is done processing
-        """
-        super().__init__()
-        self.onProcessingFinished = onProcessingFinished
 
-    @abstractmethod
-    def on_data_received(self, image: Image, lidar: Lidar) -> None:
-        pass
+class ComputerVisionModule(ABC):
+    """
+    This is the service that contains a method to convert CarlaData into CarlaFeatures.
+    """
 
     @abstractmethod
-    def _submitObjects(self, objects: List[Object], image: Image) -> None:
-        """Store the object in local memory
-
-        Args:
-            object (List[Object]): objects to be stored
-            image (Image) : image from where the objects were created
-        """
+    def process_data(self, data: CarlaData) -> CarlaFeatures:
+        """From the data from the Carla Simulator return a set of features"""
         pass
 
-    @final
-    def submitObjects(self, objects: List[Object], image: Image) -> None:
-        """Submits the list of objects to be processed by the next steps.
-        Calls the self.onProcessingFinished function
 
-        Args:
-            objects (List[Object]): objects that finished processing
-            image (Image): the image where the objects were created from
-        """
-        self._submitObjects(objects, image)
-        self.onProcessingFinished(objects, image)
+class CruiseControlAgent(ABC):
+    """A CruiseControlAgent converts CarlaFeatures into a speed"""
+
+    @abstractmethod
+    def get_action(self, state: CarlaFeatures) -> float:
+        """Calculate the throttle speed (0 - 1) from the given state"""

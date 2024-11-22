@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import random
 from threading import Thread
-from typing import Callable, List, Optional
+from typing import List, Optional
 
 import carla
 import numpy as np
 from loguru import logger
 from pygame.time import Clock
 
-from ..interfaces import CarlaBridge, Image, Lidar
+from ..interfaces import CarlaData, CarlaWorld
 from .numpy_image import NumpyImage, NumpyLidar
 from .spawner import delete_actors, spawn_vehicles, spawn_walkers
 from .wrappers import (
@@ -22,11 +22,9 @@ from .wrappers import (
 )
 
 
-class World(Thread, CarlaBridge):
+class World(Thread, CarlaWorld):
     def __init__(
         self,
-        on_image_received: Callable[[Image, Lidar]],
-        on_rgb_received: Callable[[np.ndarray], None],
         tickrate=30,
         host="127.0.0.1",
         port=2000,
@@ -36,7 +34,7 @@ class World(Thread, CarlaBridge):
         walkers=50,
         cars=10,
     ) -> None:
-        CarlaBridge.__init__(self, on_image_received=on_image_received)
+        CarlaWorld.__init__(self)
         Thread.__init__(self)
         self.tickrate = tickrate
         self.view_width = view_width
@@ -46,16 +44,12 @@ class World(Thread, CarlaBridge):
         self.port = port
         self.number_of_walkers = walkers
         self.number_of_cars = cars
-        self.on_rgb_received = on_rgb_received
 
         self.rgb_image: Optional[np.ndarray] = None
         self.depth_image: Optional[np.ndarray] = None
         self.client = CarlaClient(port=port)
         self.car: Optional[CarlaVehicle] = None
         self.all_actors: List[CarlaActor] = []
-        self.sentRGB: Optional[Image] = None
-        self.sentDepth: Optional[Image] = None
-        self.is_processing = False
 
     def setup_car(self):
         world = self.client.world
@@ -76,7 +70,6 @@ class World(Thread, CarlaBridge):
         def save_rgb_image(image: CarlaImage):
             logger.debug("received image")
             self.rgb_image = image.numpy_image
-            self.on_rgb_received(image.numpy_image)
 
         self.rgb_camera.listen(save_rgb_image)  # Actor may not lose scope
         self.all_actors.append(self.car)
@@ -95,7 +88,7 @@ class World(Thread, CarlaBridge):
             # self.depth_image = np.stack(
             #     [depth_data.reshape([image.width, image.height])] * 3, axis=-1
             # )
-            self.depth_image = np.empty((self.view_width, self.view_height))
+            self.depth_image = np.empty((self.view_height, self.view_width))
 
         self.depth_camera.listen(save_depth_image)
 
@@ -122,31 +115,24 @@ class World(Thread, CarlaBridge):
                 logger.debug(f"frame: {framecount}   ")
                 clock.tick(self.tickrate)
                 self.client.world.tick()
+                self._notify_tick_listeners()
 
-                if (
-                    self.sentRGB is None
-                    and self.sentDepth is None
-                    and self.rgb_image is not None
-                    and self.depth_image is not None
-                ):
-                    logger.info("Sending an observation")
-                    self.add_image(
-                        image=NumpyImage(self.rgb_image),
-                        lidar=NumpyLidar(
-                            self.depth_image
-                        ),  # TODO replace with depth data
+                if self.rgb_image is not None and self.depth_image is not None:
+                    logger.debug("Sending an observation")
+                    self._set_data(
+                        CarlaData(
+                            rgb_image=NumpyImage(self.rgb_image, self.view_FOV),
+                            lidar_data=NumpyLidar(self.depth_image, self.view_FOV),
+                        )
                     )
+                    self.rgb_image, self.depth_image = None, None
+                    # TODO add current speed
+
+            # TODO apply car control
 
         finally:
             self.client.world.synchronous_mode = False
             delete_actors(self.client, self.all_actors)
-
-    def _add_image(self, image: Image, lidar: Lidar) -> None:
-        self.sentDepth = lidar
-        self.sentRGB = image
-
-    def set_speed(speed: float) -> None:
-        pass  # TODO control speed of car.
 
     def stop(self) -> None:
         logger.info("Stopping simulation")

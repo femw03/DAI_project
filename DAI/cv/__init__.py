@@ -1,1 +1,1 @@
-from .cv import ComputerVisionModule  # noqa: F401
+from .cv import ComputerVisionModuleImp  # noqa: F401

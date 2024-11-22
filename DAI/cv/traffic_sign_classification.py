@@ -28,6 +28,16 @@ class TrafficSign:
     type: TrafficSignType
     confidence: float
 
+    @staticmethod
+    def speed_limit(traffic_signs: List[TrafficSign]) -> float:
+        """Find the speed limit from the traffic signs"""
+        valid_speeds = [
+            traffic_sign.type.speed_limit
+            for traffic_sign in traffic_signs
+            if traffic_sign.type.speed_limit is not None
+        ]
+        return min(valid_speeds)
+
 
 class TrafficSignType(Enum):
     BACK = ("back", 0, None)

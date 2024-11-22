@@ -1,59 +1,70 @@
 import sys
 import time
-from typing import List
 
-import cv2
-import numpy as np
 from loguru import logger
 
-from DAI.cv import ComputerVisionModule
-from DAI.interfaces.interfaces import Image, Object
-from DAI.simulator import NumpyImage, NumpyLidar, World
+from DAI.cv import ComputerVisionModuleImp
+from DAI.interfaces.interfaces import (
+    CarlaData,
+    CarlaFeatures,
+    CruiseControlAgent,
+)
+from DAI.simulator import World
 from DAI.visuals import Visuals
 
-font = cv2.FONT_HERSHEY_SIMPLEX
+
+class MockCruiseControlAgent(CruiseControlAgent):
+    def get_action(self, state: CarlaFeatures) -> float:
+        return 1
+
+
 logger.remove()
 logger.add(sys.stderr, level="INFO")
 
 
-def onImageReceived(*args) -> None:
-    print("recieved data")
+visuals = Visuals(640, 480, 30)
 
+cv = ComputerVisionModuleImp()
+agent = MockCruiseControlAgent()
 
-def onProcessingFinished(objects: List[Object], image: Image) -> None:  # noqa: F821
-    print("finished processing")
-    image_bytes = image.get_image_bytes()
-    for object in objects:
-        box = object.boundingBox
-        cv2.rectangle(
-            image_bytes, (box.x1, box.y1), (box.x2, box.y2), color=(255, 0, 0)
-        )
-        cv2.putText(
-            image_bytes,
-            f"{object.type}\n{object.angle}",
-            (box.x2, box.y1),
-            font,
-            0.25,
-            (255, 0, 0),
-            1,
-        )
-    cv2.imwrite("out.png", image_bytes)
-
-
-visuals = Visuals(640, 480, 30, on_quit=quit)
 world = World(
-    on_rgb_received=visuals.set_rgb_image,
-    on_image_received=lambda *args: print("data for agent"),
     view_height=visuals.height,
     view_width=visuals.width,
 )
 
 
-visuals.on_quit = world.stop
+def set_view_data(data: CarlaData) -> None:
+    visuals.depth_image = data.lidar_data.get_lidar_bytes()
+    visuals.rgb_image = data.rgb_image.get_image_bytes()
+
+
+is_running = True
+
+
+def stop() -> None:
+    global is_running
+    world.stop()
+    is_running = False
+
+
+world.add_listener(set_view_data)
+
+visuals.on_quit = stop
 
 world.start()
-
 visuals.start()
+
+while is_running:
+    data = world.data
+    if data is None:
+        time.sleep(0)  # yield thread
+        continue  # refetch data
+    features = cv.process_data(data)
+    visuals.detected_objects = features.objects
+    action = agent.get_action(features)
+    world.set_speed(action)
+    world.await_next_tick()
+
 
 world.join()
 visuals.join()

@@ -8,26 +8,30 @@ from ultralytics import YOLO
 
 from ..interfaces import (
     BoundingBox,
-    CVBridge,
+    CarlaData,
+    CarlaFeatures,
+    ComputerVisionModule,
     Image,
-    Lidar,
     Object,
     ObjectType,
-    ProcessingFinishedCallBack,
 )
 from .calculate_distance import calculate_anlge, calculate_object_distance
 from .traffic_sign_classification import TRANSFORM, CNNModel, ImageDataset, TrafficSign
 
 
-class ComputerVisionModule(CVBridge):
+class ComputerVisionModuleImp(ComputerVisionModule):
+    """
+    Processes the data using the following strategy:
+    1. Use big_net to detect every interesting object available
+    2. For all detected traffic_signs use the traffic_sign_classifier to classifiy the signs
+        a. Use the classified list of traffic signs to extract the current maximum speed
+    3. For all detected traffic_light use the traffic_light classifier to detect their relevance and color value
+        # TODO (implement)
+    """
+
     def __init__(
         self,
-        onProcessingFinished: ProcessingFinishedCallBack,
-        FOV: float,
     ) -> None:
-        super().__init__(onProcessingFinished)
-        self.FOV = FOV
-        """The Field Of View in degrees"""
         # Load in models
         current_dir = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "weights"
@@ -38,11 +42,9 @@ class ComputerVisionModule(CVBridge):
         )
         self.lightning_trainer = Trainer(logger=False)
 
-    def on_data_received(
-        self, image: Image, lidar: Lidar, current_speed: float
-    ) -> None:
+    def process_data(self, data: CarlaData) -> CarlaFeatures:
         results = self.big_net.predict(
-            image.get_image_bytes(), half=True, device="cuda:0"
+            data.rgb_image.get_image_bytes(), half=True, device="cuda:0"
         )
 
         detected: List[Object] = []
@@ -60,10 +62,12 @@ class ComputerVisionModule(CVBridge):
             type = ObjectType(labels[label_index])
             bounding_box = BoundingBox.from_array(bounding_box_coord)
             object_location = calculate_object_distance(
-                lidar.get_lidar_bytes(), bounding_box
+                data.lidar_data.get_lidar_bytes(), bounding_box
             )
             object_angle = calculate_anlge(
-                object_location.location[0], self.FOV, lidar.get_lidar_bytes().shape[1]
+                object_location.location[0],
+                self.FOV,
+                data.lidar_data.get_lidar_bytes().shape[1],
             )
             detected.append(
                 Object(
@@ -74,14 +78,19 @@ class ComputerVisionModule(CVBridge):
                     boundingBox=bounding_box,
                 )
             )
-        # traffic_signs = [
-        #     detected_object
-        #     for detected_object in detected
-        #     if detected_object.type == ObjectType.TRAFFIC_SIGN
-        # ]
-        # traffic_signs = self.classifiy_traffic_sign(traffic_signs, image)
+        traffic_signs = [
+            detected_object
+            for detected_object in detected
+            if detected_object.type == ObjectType.TRAFFIC_SIGN
+        ]
+        traffic_signs = self.classifiy_traffic_sign(traffic_signs, data.rgb_image)
+        max_speed = TrafficSign.speed_limit(traffic_signs)
 
-        self.submitObjects(detected, image)
+        return CarlaFeatures(
+            objects=detected,
+            current_speed=data.current_speed,
+            max_speed=max_speed,
+        )
 
     def classifiy_traffic_sign(
         self, traffic_signs: List[Object], image: Image
@@ -98,6 +107,3 @@ class ComputerVisionModule(CVBridge):
         )
         results = self.lightning_trainer.predict(self.traffic_sign_classifier, loader)
         return results
-
-    def _submitObjects(self, objects: List[Object], image: Image) -> None:
-        pass  # TODO
