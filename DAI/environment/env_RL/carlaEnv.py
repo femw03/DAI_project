@@ -45,6 +45,8 @@ class CarlaEnv(gym.Env):
       task_features = {
             "StopFlag": np.random.choice([0, 1]),
             "DistanceToStopLine": np.random.randint(0, 101),
+            "CrossingDetected": np.random.choice([0, 1]),
+            "DistanceToCrossing": np.random.randint(0, 101),
         }
       
       # Generate random number of objects (variable length)
@@ -99,8 +101,10 @@ class CarlaEnv(gym.Env):
     # random to test
     static_features = np.random.uniform(0, 100, size=(self.static_dim,))
     task_features = {
-            "StopFlag": np.random.choice([0, 1]),  # Randomly decide if stopping is required
+            "StopFlag": np.random.choice([0, 1]),             # Randomly decide if stopping is required
             "DistanceToStopLine": np.random.randint(0, 101),  # Random distance to stop line
+            "CrossingDetected": np.random.choice([0, 1]),     # Randomly decide if stopping is required
+            "DistanceToCrossing": np.random.randint(0, 101),  # Random distance to pedestrian crossing
         }
     num_objects = np.random.randint(1, self.max_objects + 1)
     object_features = np.random.uniform(-1, 1, size=(num_objects, self.object_feature_dim))
@@ -124,25 +128,36 @@ class CarlaEnv(gym.Env):
     task_features = self.current_observation["task"]
     object_features = self.current_observation["objects"]
     
-    # Margins
-    distance_margin = 0.1*safe_distance
-    speed_margin = 0.1*static_features[0]
-    
     for object in object_features:
       if object[1] == 1:                # Pedestrians
-        pass
+        if abs(object[1]) < np.radians(45) :           # angle of attack = +-45°
+          
+          """Stop before pedestrian crossing"""
+          if task_features["CrossingDetected"]:
+            if static_features[1] < 0.1:      # Car is considered stopped: remove stop flag
+              # Stop 1m from pedestrian crossing
+              if task_features["DistanceToCrossing"] > 0.9 and task_features["DistanceToCrossing"] < 1.1:
+                stop_reward = 1                           # Bonus for stopping close to stop line
+              elif task_features["DistanceToCrossing"] > 1.1:
+                stop_reward = -0.1*task_features["DistanceToCrossing"]       # Smaller penalty for stopping slightly before the stop line
+              else:
+                stop_reward = -2                          # Penalty for overshooting the stop line
+            
+            else:
+              stop_reward = -0.1*static_features[1]       # Penalty for moving when a stop is required
       
       else:
         if abs(object[1]) < np.radians(20) :           # angle of attack = +-20°
           
           """Safe distance"""
           safe_distance = 2 * static_features[1]       # Approximation of 2 seconds * current_speed
+          distance_margin = 0.1*safe_distance
                   
           if object[2] == 0.1:
             safe_distance_reward = -5                                   # Harsh penalty for crashing in object
           elif object[2] <= 0.5*safe_distance:
             safe_distance_reward = -2                                   # Large penalty for being too close (unsafe)
-          elif object[2] < safe_distance+distance_margin or object[2] > safe_distance-distance_margin:
+          elif object[2] < safe_distance+distance_margin and object[2] > safe_distance-distance_margin:
             safe_distance_reward = 1                                    # Bonus for staying within 10% of safe distance
           else:
             safe_distance_reward = -0.1 * (object[2]/safe_distance)     # Smaller penalty for trailing too far behind
@@ -153,17 +168,21 @@ class CarlaEnv(gym.Env):
           speed_margin = 0.1*static_features[0]
           if static_features[0]-speed_margin > static_features[1]:
             slow_speed_reward = -0.1 * (static_features[1]/static_features[0])
+          else:
+            slow_speed_reward = 0
               
     """Following speed limit"""
     if static_features[0] < static_features[1]:
-        fast_speed_reward = -0.1 * (static_features[1]/static_features[0])
+      fast_speed_reward = -0.1 * (static_features[1]/static_features[0])
+    else:
+      fast_speed_reward = 0
     
     # TO DO: remove stop flag when car is stopped
     """Stop line"""
     if task_features["StopFlag"]:
       if static_features[1] < 0.1:      # Car is considered stopped: remove stop flag
         # Stop 1m from stop line
-        if task_features["DistanceToStopLine"] > 0.9 or task_features["DistanceToStopLine"] < 1.1:
+        if task_features["DistanceToStopLine"] > 0.9 and task_features["DistanceToStopLine"] < 1.1:
           stop_reward = 1                           # Bonus for stopping close to stop line
         elif task_features["DistanceToStopLine"] > 1.1:
           stop_reward = -0.1*task_features["DistanceToStopLine"]       # Smaller penalty for stopping slightly before the stop line
@@ -172,6 +191,8 @@ class CarlaEnv(gym.Env):
       
       else:
         stop_reward = -0.1*static_features[1]       # Penalty for moving when a stop is required
+    else:
+      stop_reward = 0
         
     # Penalize large actions
     action_penalty = -np.sum(np.square(action))
@@ -185,18 +206,4 @@ class CarlaEnv(gym.Env):
     """
     Determine if the episode is terminated based on task-specific or static conditions.
     """
-    task_features = self.current_observation["task"]
-    stop_flag = task_features["StopFlag"]
-    distance_to_stop_line = task_features["DistanceToStopLine"]
-
-    # Terminate if StopFlag is active and car is near the stop line
-    if stop_flag == 1 and distance_to_stop_line < 1.0:
-        return True
-
-    # Terminate if speed exceeds a threshold
-    speed = self.current_observation["static"][1]  # Current speed
-    if speed > 100:
-        return True
-
-    return False
-  
+    pass  
