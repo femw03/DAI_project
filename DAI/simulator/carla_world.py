@@ -97,12 +97,15 @@ class CarlaWorld(Thread, World):
             self.depth_image = np.empty((self.view_height, self.view_width))
 
         self.depth_camera.listen(save_depth_image)
+        self.car.autopilot = True
 
     def setup(self):
         """Spawns the car and external actors"""
         world = self.client.world
         world.delta_seconds = 1 / self.tickrate
         world.synchronous_mode = True
+        tm = self.client.get_traffic_manager()
+        tm.synchronous_mode = True
 
         self.setup_car()
 
@@ -130,6 +133,7 @@ class CarlaWorld(Thread, World):
                         CarlaData(
                             rgb_image=NumpyImage(self.rgb_image, self.view_FOV),
                             lidar_data=NumpyLidar(self.depth_image, self.view_FOV),
+                            current_speed=0,
                         )
                     )
                     self.rgb_image, self.depth_image = None, None
@@ -140,6 +144,7 @@ class CarlaWorld(Thread, World):
         finally:
             self.client.world.synchronous_mode = False
             delete_actors(self.client, self.all_actors)
+            self._notify_tick_listeners()
 
     def stop(self) -> None:
         logger.info("Stopping simulation")

@@ -1,20 +1,43 @@
 """Contains a bunch of dataclass objects that are used to pass information between the parts of the system"""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional
 
 import numpy as np
+from loguru import logger
 
 from .image import Image, Lidar
 
 
 ### Objects ###
-class ObjectType(str, Enum):
-    VEHICLE = "vehicle"
-    TRAFFIC_LIGHT = "traffic light"
-    TRAFFIC_SIGN = "traffic sign"
-    PEDESTRIAN = "pedestrian"
+class ObjectType(Enum):
+    CAR = ["car", "other vehicle", "vehicles"]
+    MOTOR_CYCLE = ["motorcycle"]
+    BICYLE = ["bicycle"]
+    BUS = ["bus", "large vehicles"]
+    PEDESTRIAN = ["pedestrians", "other person"]
+    RIDER = ["rider"]
+    TRAFFIC_LIGHT = ["traffic lights"]
+    TRAFFIC_SIGN = ["traffic signs"]
+    TRAIN = ["train"]
+    TRUCK = ["truck"]
+    TRAILER = ["trailer"]
+
+    def __init__(self, labels: List[str]):
+        self._labels = labels
+
+    @staticmethod
+    def label(label: str) -> Optional[ObjectType]:
+        for type in ObjectType:
+            if label in type._labels:
+                return type
+        logger.warning(
+            f"Tried to find the type for the label: {label} but it was not found"
+        )
+        return None
 
 
 @dataclass
@@ -77,3 +100,4 @@ class CarlaFeatures:
     objects: List[Object]
     current_speed: float
     max_speed: Optional[float]
+    current_light: str

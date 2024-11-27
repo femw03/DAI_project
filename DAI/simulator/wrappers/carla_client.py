@@ -5,6 +5,7 @@ import carla
 from loguru import logger
 
 from .carla_core import CarlaWorld
+from .carla_traffic_manager import CarlaTrafficManager
 from .carla_utils import CarlaCommand, CarlaCommandResponse
 
 IS_DOCKER = "IS_CONTAINER" in os.environ and os.environ["IS_CONTAINER"] == "TRUE"
@@ -49,6 +50,9 @@ class CarlaClient:
             [command.reduced for command in commands]
         )
         return [CarlaCommandResponse(response) for response in responses]
+
+    def get_traffic_manager(self) -> CarlaTrafficManager:
+        return CarlaTrafficManager(self.client.get_trafficmanager(8000))
 
 
 def main():

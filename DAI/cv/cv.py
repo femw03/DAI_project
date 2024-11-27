@@ -1,19 +1,16 @@
 import os
-from typing import Dict, List
 
-import torch
 from lightning import Trainer
 from ultralytics import YOLO
 
 from ..interfaces import (
-    BoundingBox,
     CarlaData,
     CarlaFeatures,
     ComputerVisionModule,
-    Object,
     ObjectType,
 )
-from .calculate_distance import calculate_anlge, calculate_object_distance
+from .object_detection import big_object_detection
+from .traffic_light_detection import TrafficLight, detect_traffic_lights
 from .traffic_sign_classification import TrafficSign, TrafficSignClassifier
 
 
@@ -34,50 +31,29 @@ class ComputerVisionModuleImp(ComputerVisionModule):
         current_dir = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "weights"
         )
+
+        # Load big net
         self.big_net = YOLO(os.path.join(current_dir, "big_net.pt"), task="detect")
-        self.traffic_sign_classifier = TrafficSignClassifier(
-            model=torch.load(os.path.join(current_dir, "traffic_sign.pth"))
+
+        # Load traffic light detection
+        self.traffic_light_net = YOLO(
+            os.path.join(current_dir, "traffic_light.pt"), task="detect"
         )
-        self.lightning_trainer = Trainer(logger=False)
+
+        # Load traffic sign classifier
+        self.traffic_sign_classifier = TrafficSignClassifier.from_weights_file(
+            os.path.join(current_dir, "traffic_sign.pth")
+        )
+        self.lightning_trainer = Trainer(
+            logger=False,
+            enable_model_summary=False,
+            enable_progress_bar=False,
+            accelerator="gpu",
+        )
 
     def process_data(self, data: CarlaData) -> CarlaFeatures:
         # Use the big net to detect objects generally
-        results = self.big_net.predict(
-            data.rgb_image.get_image_bytes(), half=True, device="cuda:0"
-        )
-
-        # Convert the YOLO Results to a list of Objects
-        detected: List[Object] = []
-        result = results[0]
-        probabilities: List[float] = result.boxes.conf.tolist()
-        label_indices: List[int] = result.boxes.cls.tolist()
-        labels: Dict[int, str] = result.names
-        bounding_box_coords: List[List[float]] = result.boxes.xyxy.to(
-            torch.int
-        ).tolist()
-
-        for confidence, label_index, bounding_box_coord in zip(
-            probabilities, label_indices, bounding_box_coords
-        ):
-            type = ObjectType(labels[label_index])
-            bounding_box = BoundingBox.from_array(bounding_box_coord)
-            object_location = calculate_object_distance(
-                data.lidar_data.get_lidar_bytes(), bounding_box
-            )
-            object_angle = calculate_anlge(
-                object_location.location[0],
-                self.FOV,
-                data.lidar_data.get_lidar_bytes().shape[1],
-            )
-            detected.append(
-                Object(
-                    type=type,
-                    confidence=confidence,
-                    angle=object_angle,
-                    distance=object_location.depth,
-                    boundingBox=bounding_box,
-                )
-            )
+        detected = big_object_detection(self.big_net, data)
 
         # Use the traffic sign classifier to get more details about the traffic signs
         traffic_signs = [
@@ -93,8 +69,19 @@ class ComputerVisionModuleImp(ComputerVisionModule):
         )
         max_speed = TrafficSign.speed_limit(traffic_signs)
 
+        traffic_lights = [
+            detected_object
+            for detected_object in detected
+            if detected_object.type == ObjectType.TRAFFIC_LIGHT
+        ]
+        current_light = None
+        if len(traffic_lights) != 0:
+            lights = detect_traffic_lights(self.traffic_light_net, data.rgb_image)
+            current_light = TrafficLight.should_stop(lights)
+
         return CarlaFeatures(
             objects=detected,
             current_speed=data.current_speed,
             max_speed=max_speed,
+            current_light=current_light,
         )

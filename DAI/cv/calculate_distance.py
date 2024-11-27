@@ -42,10 +42,10 @@ def calculate_object_distance(
     # Extract the region of interest (bounding box) from the smoothed depth map
     roi_depth = smoothed_depth_map[y_min:y_max, x_min:x_max]
     # Apply median filtering to the ROI for salt-and-pepper noise reduction
-    filtered_roi_depth = cv2.medianBlur(roi_depth.astype(np.float32), 3)
+    # filtered_roi_depth = cv2.medianBlur(roi_depth.astype(np.float32), 3)
     # Find the darkest pixel (smallest depth value) in the filtered ROI
     min_depth, max_depth, min_loc, max_loc = cv2.minMaxLoc(
-        filtered_roi_depth
+        roi_depth
     )  # min_loc gives the (x, y) position within the ROI
     # Calculate the position of the closest point in the original image coordinates
     closest_x = x_min + min_loc[0]

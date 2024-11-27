@@ -5,16 +5,16 @@ from __future__ import annotations
 import os
 from enum import Enum
 from threading import Thread
-from typing import Callable, List, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 import pygame
 from loguru import logger
 from pygame.locals import K_ESCAPE, K_RIGHT, K_i
 
-from ..interfaces import Object
+from ..interfaces import CarlaFeatures
 from ..platform import list_tiger_vnc_displays
-from .visual_utils import add_object_information
+from .visual_utils import add_object_information, add_static_information
 
 
 class VisualType(Enum):
@@ -65,7 +65,7 @@ class Visuals(Thread):
         )
         """The depth image to be blit onto the display if this option is selected"""
 
-        self.detected_objects: List[Object] = []
+        self.detected_features: Optional[CarlaFeatures] = None
         """The objects that are detected and used to draw bounding boxes"""
 
         self.running = False
@@ -109,9 +109,12 @@ class Visuals(Thread):
         else:
             raise RuntimeError("Invalid image type setting")
 
-        if self.display_object_information:
+        if self.display_object_information and self.detected_features is not None:
             selected_image = add_object_information(
-                selected_image, self.detected_objects
+                selected_image, self.detected_features.objects
+            )
+            selected_image = add_static_information(
+                selected_image, self.detected_features
             )
 
         display.blit(

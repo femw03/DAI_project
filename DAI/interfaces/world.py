@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from abc import ABC
+from threading import Event
 from typing import Callable, List, Optional, final  # noqa: F401
 
 from loguru import logger
@@ -59,19 +60,19 @@ class World(ABC):
     @final
     def await_next_tick(self) -> None:
         """Blocks thread until the next tick has happened"""
-        has_ticked = False
+        tick_event = Event()
 
         def set_has_ticked():
-            global has_ticked
-            has_ticked = True
+            logger.debug("New tick signalled")
+            tick_event.set()
 
         self.add_tick_listener(set_has_ticked)
-        while not has_ticked:
-            time.sleep(0)
+        tick_event.wait()
         self.remove_tick_listener(set_has_ticked)
 
     @final
     def _notify_tick_listeners(self) -> None:
         """Notify all tick listeners, MUST be called after every world tick"""
+        logger.debug("Tick listeners notified")
         for listener in self.__tick_listeners:
             listener()
