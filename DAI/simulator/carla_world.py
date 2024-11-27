@@ -89,7 +89,11 @@ class CarlaWorld(Thread, World):
         self.depth_camera = self.car.add_camera(depth_camera_bp)
 
         def save_depth_image(image: CarlaImage):
-            image.native.save_to_disk("test.data", carla.ColorConverter.Raw)
+            logger.info(
+                f"Depth height: {image.native.height}, Depth width: {image.native.width}, total datasize: {image.native.raw_data.shape}"
+            )
+            with open("output_image.raw", "wb") as file:
+                file.write(image.native.raw_data)
             # depth_data = image.to_depth()
             # self.depth_image = np.stack(
             #     [depth_data.reshape([image.width, image.height])] * 3, axis=-1
