@@ -6,7 +6,10 @@ import torch
 from ultralytics import YOLO
 
 from ..interfaces import BoundingBox, CarlaData, Object, ObjectType
-from .calculate_distance import calculate_anlge, calculate_object_distance
+from .calculate_distance import (
+    calculate_anlge,
+    calculate_object_distance,
+)
 
 
 def big_object_detection(model: YOLO, data: CarlaData) -> List[Object]:
@@ -28,9 +31,8 @@ def big_object_detection(model: YOLO, data: CarlaData) -> List[Object]:
     ):
         type = ObjectType.label(labels[label_index])
         bounding_box = BoundingBox.from_array(bounding_box_coord)
-        object_location = calculate_object_distance(
-            data.lidar_data.get_lidar_bytes(), bounding_box
-        )
+        object_location = calculate_object_distance(data.lidar_data, bounding_box)
+        # object_location = ObjectDistance(depth=0, location=(0, 0))
         object_angle = calculate_anlge(
             object_location.location[0],
             data.rgb_image.fov,

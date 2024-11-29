@@ -16,6 +16,7 @@ from ..interfaces import (
     CruiseControlAgent,
 )
 from ..simulator import CarlaWorld
+from ..utils import timeit
 from ..visuals import Visuals
 
 
@@ -33,10 +34,7 @@ visuals = Visuals(1280, 720, 30)
 cv = ComputerVisionModuleImp()
 agent = MockCruiseControlAgent()
 
-world = CarlaWorld(
-    view_height=visuals.height,
-    view_width=visuals.width,
-)
+world = CarlaWorld(view_height=visuals.height, view_width=visuals.width)
 
 
 def set_view_data(data: CarlaData) -> None:
@@ -65,11 +63,15 @@ while is_running:
     if data is None:
         time.sleep(0)  # yield thread
         continue  # refetch data
-    features = cv.process_data(data)
+    features, process_time = timeit(lambda: cv.process_data(data))
     visuals.detected_features = features
+    visuals.process_time = process_time
     action = agent.get_action(features)
     world.set_speed(action)
     world.await_next_tick()
+    if len(world.pedestrians) > 0:
+        walker = world.pedestrians[0]
+        logger.info(f"{walker.location}, {walker.velocity},{walker.state}")
 
 
 world.join()

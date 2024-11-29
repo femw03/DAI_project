@@ -84,8 +84,8 @@ def spawn_walkers(
 
     walkers: list[CarlaWalker] = []
     world.pedestrian_crossing_factor = pedestrian_cross_factor
-
-    for i in range(walker_target):
+    walker_speeds = []
+    for _ in range(walker_target):
         spawn_point = carla.Transform()
         location = world.get_random_walker_location()
         spawn_point.location = location.native
@@ -95,22 +95,35 @@ def spawn_walkers(
         if blueprint.contains("is_invincible"):
             blueprint["is_invincible"] = "false"
         # set the max speed
+        speed = 0.0
         if blueprint.contains("speed"):
-            pass  # TODO
+            # pass  # TODO
             # if random.random() > percentagePedestriansRunning:
             #     # walking
-            #     walker_speed.append(
-            #         walker_bp.get_attribute("speed").recommended_values[1]
-            #     )
+            speed: float = float(blueprint["speed"].recommended_values[1])
         try:
             walker = world.spawn_walker(blueprint, spawn_point)
         except Exception as e:
             logger.error(e)
             continue
         walkers.append(walker)
+        walker_speeds.append(speed)
+    # Update walker locations
+    world.tick()
 
+    # Add controller
+    for walker in walkers:
         walker_controller_bp = world.blueprint_library.filter("controller.ai.walker")[0]
         walker.add_controller(walker_controller_bp)
+
+    # Update everything again
+    world.tick()
+    for walker, speed in zip(walkers, walker_speeds):
+        controller = walker.controller
+        assert controller is not None
+        controller.start()
+        controller.speed = speed
+        controller.go_to_location(world.get_random_walker_location())
     logger.info(f"successfully spawned {len(walkers)} walkers")
     return walkers
 
@@ -125,23 +138,8 @@ def delete_actors(client: CarlaClient, actors: List[CarlaActor]) -> None:
     #         logger.error(f"Exception occured while deleting: {actor}: {e}")
     results = client.apply_batch_sync([DestroyActorCommand(actor) for actor in actors])
     for result in results:
-        if result.error is not None:
+        if result.error is not None or len(str(result.error).strip()) > 0:
             logger.warning(result.error)
-
-    # finally:
-    #     print("\ndestroying %d vehicles" % len(vehicles_list))
-    #     self.client.apply_batch(
-    #         [carla.command.DestroyActor(x) for x in vehicles_list]
-    #     )
-
-    #     # stop walker controllers (list is [controller, actor, controller, actor ...])
-    #     for i in range(0, len(all_id), 2):
-    #         all_actors[i].stop()
-
-    #     print("\ndestroying %d walkers" % len(walkers_list))
-    #     self.client.apply_batch([carla.command.DestroyActor(x) for x in all_id])
-
-    #     time.sleep(0.5)
 
 
 if __name__ == "__main__":
