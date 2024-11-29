@@ -8,7 +8,7 @@ from typing import List, Literal, Tuple
 import cv2
 import numpy as np
 
-from ..interfaces import BoundingBox
+from ..interfaces import BoundingBox, Lidar
 
 
 @dataclass
@@ -18,7 +18,7 @@ class ObjectDistance:
 
 
 def calculate_object_distance(
-    depth_image: np.ndarray, bounding_box: BoundingBox
+    depth: Lidar, bounding_box: BoundingBox
 ) -> ObjectDistance:
     """
     Takes a depth image (width, height) and calculates the location (x,y)
@@ -34,23 +34,28 @@ def calculate_object_distance(
         bounding_box.y2,
     )
     # Extract depth data
-    depth_in_meters = depth_image  # TODO calculate depth_image to meters
     # Apply Gaussian smoothing to the entire depth map to reduce noise
-    smoothed_depth_map = cv2.GaussianBlur(
-        depth_in_meters, (kernal_size, kernal_size), sigma
-    )
+    # smoothed_depth_map = cv2.GaussianBlur(
+    #     depth.get_lidar_bytes(), (kernal_size, kernal_size), sigma
+    # )
     # Extract the region of interest (bounding box) from the smoothed depth map
-    roi_depth = smoothed_depth_map[y_min:y_max, x_min:x_max]
-    # Apply median filtering to the ROI for salt-and-pepper noise reduction
-    # filtered_roi_depth = cv2.medianBlur(roi_depth.astype(np.float32), 3)
-    # Find the darkest pixel (smallest depth value) in the filtered ROI
-    min_depth, max_depth, min_loc, max_loc = cv2.minMaxLoc(
-        roi_depth
-    )  # min_loc gives the (x, y) position within the ROI
+    roi_depth: np.ndarray = depth.get_lidar_bytes()[y_min:y_max, x_min:x_max]
+    if roi_depth.size == 0:
+        min_loc = (bounding_box.x1, bounding_box.x2)
+    else:
+        # Apply median filtering to the ROI for salt-and-pepper noise reduction
+        # filtered_roi_depth = cv2.medianBlur(roi_depth.astype(np.float32), 3)
+        # Find the darkest pixel (smallest depth value) in the filtered ROI
+        _, _, min_loc, _ = cv2.minMaxLoc(
+            roi_depth
+        )  # min_loc gives the (x, y) position within the ROI
     # Calculate the position of the closest point in the original image coordinates
+    distance_in_meters = depth.get_lidar_meters()
     closest_x = x_min + min_loc[0]
     closest_y = y_min + min_loc[1]
-    return ObjectDistance((closest_x, closest_y), min_depth)
+    return ObjectDistance(
+        (closest_x, closest_y), distance_in_meters[closest_y, closest_x]
+    )
 
 
 def calculate_lateral_movement_by_optical_flow(

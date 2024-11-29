@@ -4,7 +4,6 @@ import random
 from threading import Thread
 from typing import List, Optional
 
-import carla
 import numpy as np
 from loguru import logger
 from pygame.time import Clock
@@ -15,6 +14,7 @@ from .spawner import delete_actors, spawn_vehicles, spawn_walkers
 from .wrappers import (
     CarlaActor,
     CarlaClient,
+    CarlaColorConverter,
     CarlaDepthBlueprint,
     CarlaImage,
     CarlaRGBBlueprint,
@@ -55,6 +55,8 @@ class CarlaWorld(Thread, World):
         self.client = CarlaClient(port=port)
         self.car: Optional[CarlaVehicle] = None
         self.all_actors: List[CarlaActor] = []
+        self.cars: List[CarlaActor] = []
+        self.pedestrians: List[CarlaActor] = []
 
     def setup_car(self):
         """Spawns the car and attaches the rgb- and depth camera to it and setups their listeners"""
@@ -89,16 +91,14 @@ class CarlaWorld(Thread, World):
         self.depth_camera = self.car.add_camera(depth_camera_bp)
 
         def save_depth_image(image: CarlaImage):
-            logger.info(
-                f"Depth height: {image.native.height}, Depth width: {image.native.width}, total datasize: {image.native.raw_data.shape}"
+            converted = image.convert(CarlaColorConverter.DEPTH())
+            numpy_image = converted.numpy_image[..., 0]
+            if numpy_image is None:
+                return
+            self.depth_image = numpy_image
+            logger.debug(
+                f"Depth image [{self.depth_image.min(), self.depth_image.max()}] shape: {self.depth_image.shape}"
             )
-            with open("output_image.raw", "wb") as file:
-                file.write(image.native.raw_data)
-            # depth_data = image.to_depth()
-            # self.depth_image = np.stack(
-            #     [depth_data.reshape([image.width, image.height])] * 3, axis=-1
-            # )
-            self.depth_image = np.empty((self.view_height, self.view_width))
 
         self.depth_camera.listen(save_depth_image)
         self.car.autopilot = True
@@ -113,8 +113,9 @@ class CarlaWorld(Thread, World):
 
         self.setup_car()
 
-        self.all_actors.extend(spawn_vehicles(self.client, self.number_of_cars))
-        self.all_actors.extend(spawn_walkers(self.client, self.number_of_walkers))
+        self.cars = spawn_vehicles(self.client, self.number_of_cars)
+        self.pedestrians = spawn_walkers(self.client, self.number_of_walkers)
+        self.all_actors = [*self.cars, *self.pedestrians]
         self.loop_running = True
 
     def run(self):
@@ -136,12 +137,14 @@ class CarlaWorld(Thread, World):
                     self._set_data(
                         CarlaData(
                             rgb_image=NumpyImage(self.rgb_image, self.view_FOV),
-                            lidar_data=NumpyLidar(self.depth_image, self.view_FOV),
-                            current_speed=0,
+                            lidar_data=NumpyLidar(
+                                self.depth_image,
+                                self.view_FOV,
+                                converter=lambda x: (x / 255) * 1000,
+                            ),
+                            current_speed=self.car.velocity.magnitude,
                         )
                     )
-                    self.rgb_image, self.depth_image = None, None
-                    # TODO add current speed
 
             # TODO apply car control
 

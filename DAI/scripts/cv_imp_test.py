@@ -13,7 +13,8 @@ from loguru import logger
 from ..cv import ComputerVisionModuleImp
 from ..interfaces import CarlaData, ObjectType
 from ..simulator import NumpyImage, NumpyLidar
-from ..visuals.visual_utils import add_object_information
+from ..utils import timeit
+from ..visuals.visual_utils import add_object_information, add_static_information
 
 
 def main(image_path: str) -> None:
@@ -24,18 +25,26 @@ def main(image_path: str) -> None:
     image = cv2.imread(image_path)
     data = CarlaData(
         rgb_image=NumpyImage(image, 90),
-        lidar_data=NumpyLidar(np.zeros(image.shape[:2]), 90),
+        lidar_data=NumpyLidar(
+            np.random.random(image.shape[:2]), 90, lambda x: x * 1000
+        ),
         current_speed=0,
     )
     cv = ComputerVisionModuleImp()
 
     logger.info("Processing image")
-    result = cv.process_data(data)
-    logger.info(result)
+    # Warmup
+    cv.process_data(data)
+
+    # Real
+    result, time = timeit(lambda: cv.process_data(data))
+    logger.info(f"Finished in {time:.3}s")
+    logger.debug(result)
     image_with_bb = add_object_information(image, result.objects)
+    image_with_static = add_static_information(image_with_bb, result, time)
 
     logger.info("Writing result to out.png")
-    cv2.imwrite("out.png", image_with_bb)
+    cv2.imwrite("out.png", image_with_static)
     traffic_signs = [
         detected_object
         for detected_object in result.objects

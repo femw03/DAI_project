@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from abc import ABC
 from dataclasses import dataclass
 from typing import Any, Optional, Type
@@ -83,3 +84,19 @@ class CarlaLocation:
     @property
     def native(self) -> carla.Location:
         return carla.Location(self.x, self.y, self.z)
+
+
+class CarlaVector3D:
+    """A wrapper around the carla 3D vector object"""
+
+    def __init__(self, vector: carla.Vector3D) -> None:
+        assert isinstance(vector, carla.Vector3D)
+        self.vector = vector
+        self.x = vector.x
+        self.y = vector.y
+        self.z = vector.z
+
+    @property
+    def magnitude(self) -> float:
+        """Calculate the magnitude of the vector"""
+        return math.sqrt(self.x**2 + self.y**2 + self.z**2)

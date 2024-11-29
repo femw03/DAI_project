@@ -8,7 +8,8 @@ import numpy as np
 from loguru import logger
 
 from .carla_blueprint import CarlaBlueprint, CarlaBlueprintLibrary
-from .carla_utils import CarlaLocation
+from .carla_color_converter import CarlaColorConverter
+from .carla_utils import CarlaLocation, CarlaVector3D
 
 
 class CarlaWorld:
@@ -164,6 +165,18 @@ class CarlaActor:
             logger.error(f"Error when dispawning {self.actor}: {e}")
             return False
 
+    @property
+    def velocity(self) -> CarlaVector3D:
+        return CarlaVector3D(self.actor.get_velocity())
+
+    @property
+    def location(self) -> CarlaLocation:
+        return CarlaLocation.from_native(self.actor.get_location())
+
+    @property
+    def state(self):
+        return self.actor.actor_state
+
 
 class CarlaWalkerAI(CarlaActor):
     """An actor that controls a walker"""
@@ -176,12 +189,25 @@ class CarlaWalkerAI(CarlaActor):
             controller, carla.WalkerAIController
         ), f"Instantiate CarlaWalker with a walker instead of {type(controller)}"
         self.walker = walker
+        self._speed = 0.0
 
     def stop(self) -> None:
         self.actor.stop()
 
     def start(self) -> None:
         self.actor.start()
+
+    def go_to_location(self, location: CarlaLocation) -> None:
+        self.actor.go_to_location(location.native)
+
+    @property
+    def speed(self) -> float:
+        return self._speed
+
+    @speed.setter
+    def speed(self, value: float) -> None:
+        self._speed = value
+        self.actor.set_max_speed(value)
 
 
 class CarlaWalker(CarlaActor):
@@ -306,10 +332,15 @@ class CarlaImage:
     @property
     def numpy_image(self) -> np.ndarray:
         array = np.frombuffer(self.raw_data, dtype=np.dtype("uint8"))
-        array = np.reshape(array, (self.height, self.width, 4))  # Reshape into RGBA
-        array = array[:, :, :3]
-        array = array[:, :, ::-1]
+        array = np.reshape(array, (self.height, self.width, 4))  # Reshape into BGRA
+        array = array[..., :3]  # Select the color channels
+        array = array[:, :, ::-1]  # reverse to RGB
         return array
 
     def to_depth(self) -> np.ndarray:
         return self.native.convert(carla.ColorConverter.Depth)
+
+    def convert(self, converter: CarlaColorConverter) -> CarlaImage:
+        self.native.convert(converter.converter)
+
+        return self
