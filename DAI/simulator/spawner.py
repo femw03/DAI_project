@@ -151,4 +151,4 @@ if __name__ == "__main__":
     combined = vehicles + walkers
     input("press enter to quit")
     logger.info(f"Destroying {len(combined)}")
-    delete_actors(combined)
+    delete_actors(client, combined)

@@ -77,7 +77,7 @@ class Visuals(Thread):
 
     def setup(self) -> Tuple[pygame.Surface, pygame.time.Clock]:
         logger.info("Settting up pygame")
-        vnc_display = list_tiger_vnc_displays()
+        vnc_display = [":2"] #list_tiger_vnc_displays() # didn't detect my vncserver :2!
         if len(vnc_display) == 0:
             raise RuntimeError("No screens where available to attach to")
         logger.info(f"Using display {vnc_display[0]}")
