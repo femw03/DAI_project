@@ -22,7 +22,8 @@
         "vscode": {
             "extensions": [
                 "donjayamanne.python-extension-pack",
-                "charliermarsh.ruff"
+                "charliermarsh.ruff",
+                "ms-toolsai.jupyter"
             ],
             "settings": {
                 "editor.formatOnSave": true
