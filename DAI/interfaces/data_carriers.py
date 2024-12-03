@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
@@ -87,6 +88,7 @@ class CarlaData:
     rgb_image: Image
     lidar_data: Lidar
     current_speed: float
+    time_stamp: datetime
 
 
 ### Carla Features ###
@@ -100,4 +102,7 @@ class CarlaFeatures:
     objects: List[Object]
     current_speed: float
     max_speed: Optional[float]
-    current_light: str
+    stop_flag: bool
+    distance_to_stop: Optional[float]
+    pedestrian_crossing_flag: bool
+    distance_to_pedestrian_crossing: Optional[float]

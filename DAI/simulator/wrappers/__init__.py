@@ -13,7 +13,9 @@ from .carla_client import CarlaClient  # noqa: F401
 from .carla_color_converter import CarlaColorConverter  # noqa: F401
 from .carla_core import (  # noqa: F401
     CarlaActor,
+    CarlaCollisionEvent,
     CarlaImage,
+    CarlaTrafficLightState,
     CarlaVehicle,
     CarlaWalker,
     CarlaWorld,
