@@ -36,6 +36,12 @@ class Lidar(ABC):
     @abstractmethod
     def get_lidar_bytes(self) -> np.ndarray:
         """
-        Get the data from the LIDAR data as an array. (Height, Width) the unit is in meters
+        Get the data from the LIDAR data as an array. (Height, Width) the unit values should be bounded between 0-1
         """
         pass
+
+    @abstractmethod
+    def get_lidar_meters(self) -> np.ndarray:
+        """
+        Get the data from the LIDAR data as an (Height, Width) array with the values representing meters
+        """

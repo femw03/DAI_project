@@ -73,10 +73,11 @@ class Visuals(Thread):
 
         self.visuals_type = VisualType.RGB
         self.display_object_information: bool = False
+        self.process_time: Optional[float] = None
 
     def setup(self) -> Tuple[pygame.Surface, pygame.time.Clock]:
         logger.info("Settting up pygame")
-        vnc_display = list_tiger_vnc_displays()
+        vnc_display = [":2"] #list_tiger_vnc_displays() # didn't detect my vncserver :2!
         if len(vnc_display) == 0:
             raise RuntimeError("No screens where available to attach to")
         logger.info(f"Using display {vnc_display[0]}")
@@ -105,7 +106,7 @@ class Visuals(Thread):
         if self.visuals_type == VisualType.RGB:
             selected_image = self.rgb_image
         elif self.visuals_type == VisualType.DEPTH:
-            selected_image = self.depth_image
+            selected_image = np.repeat(self.depth_image[:, :, np.newaxis], 3, axis=2)
         else:
             raise RuntimeError("Invalid image type setting")
 
@@ -114,7 +115,7 @@ class Visuals(Thread):
                 selected_image, self.detected_features.objects
             )
             selected_image = add_static_information(
-                selected_image, self.detected_features
+                selected_image, self.detected_features, self.process_time
             )
 
         display.blit(

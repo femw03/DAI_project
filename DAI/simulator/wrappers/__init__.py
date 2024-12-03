@@ -10,6 +10,7 @@ from .carla_blueprint import (  # noqa: F401
     CarlaRGBBlueprint,
 )
 from .carla_client import CarlaClient  # noqa: F401
+from .carla_color_converter import CarlaColorConverter  # noqa: F401
 from .carla_core import (  # noqa: F401
     CarlaActor,
     CarlaImage,
