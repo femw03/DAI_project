@@ -1,77 +1,70 @@
+import sys, os
+sys.path.append(os.getcwd())
+
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 from loguru import logger
+import random
 
 from DAI.simulator.extract import get_objects, get_current_max_speed, get_current_speed, get_current_affecting_light_state, has_collided
 from DAI.simulator.wrappers import CarlaTrafficLightState
 from DAI.interfaces import Object, ObjectType
+from .carla_setup import setup_carla
 
 class CarlaEnv(gym.Env):
   """Custom Gym Environment for RL with variable-length object detections."""
 
   def __init__(self, config):
     # Configuration for the environment
+    logger.info("Startup environment")
     self.config = config
     self.perfect = config["perfect"]
     self.world_max_speed = config["world_max_speed"]
-    self.world = config["world"]
+    self.world = setup_carla()
     self.max_objects = config["max_objects"]    # Maximum number of objects per observation
     self.relevant_distance = config["relevant_distance"]
     self.collisionFlag = False
     
     self.static_dim = 2                         # Static features space: speed limit, current speed
-    self.task_dim = 2                           # Task-specific features space: StopFlag, distance to stop line
-    self.object_feature_dim = 5                 # Number of object detection features per object: type, boundingBox, confidence, distance, angle
+    self.task_dim = 4                           # Task-specific features space: StopFlag, distance to stop line, CrossingFlag, distance to crossing
+    self.object_feature_dim = 4                 # Number of object detection features per object: type, confidence, distance, angle
     
-    # Define observation space
-    self.static_space = spaces.Box(low=0, high=1, shape=(self.static_dim,), dtype=np.float32)     
-    self.task_space = spaces.Dict({
-            "StopFlag": spaces.Discrete(2),  # Boolean: 0 (no stop) or 1 (stop required)
-            "DistanceToStopLine": spaces.Box(low=0.0, high=1.0, shape=(), dtype=np.float32),
-            "CrossingDetected": spaces.Discrete(2),  # Boolean: 0 (no pedestrian crossing) or 1 (crossing detected),
-            "DistanceToCrossing": spaces.Box(low=0.0, high=1.0, shape=(), dtype=np.float32),
-        })    
-    self.object_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.max_objects, self.object_feature_dim), dtype=np.float32)
-    
-    # Combine observation spaces into a dictionary
-    self.observation_space = spaces.Dict({
-        "static": self.static_space,
-        "task": self.task_space,
-        "objects": self.object_space,
-    })
+    # Calculate the total observation space size
+    total_obs_dim = self.static_dim + self.task_dim + self.max_objects * self.object_feature_dim
+
+    # Define observation space as a single Box space
+    self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(total_obs_dim,), dtype=np.float32)
     
     # Define actions space
     self.action_space = spaces.Box(low=0.0, high=1.0, shape=(1,), dtype=np.float32)       # low = full brake          high = full throttle
-                                                                                          # 1 action, NOT seperate brake and throttle, because car cannot brake and throttle at same time
-                                                                                          
-  def reset(self):
+                                                                                          # 1 action, NOT seperate brake and throttle, because car cannot brake and throttle at same time  
+    logger.info("Successfully setup environment")
+
+
+  def reset(self, seed=None, **kwargs):
       """
       Reset the environment to initial state and return initial observation.
       """
+      print("resetting")
       # Reset Carla world
-      self.world.reset()
+      #self.world.reset()
+
+      # Set the random seed if provided
+      if seed is not None:
+          np.random.seed(seed)  # Set the seed for numpy's random number generator
             
       # Initial states
       self.collisionFlag = False
-      static_features = np.zeros(self.static_dim, dtype=np.float32)
-      task_features = {
-            "StopFlag": 0,
-            "DistanceToStopLine": 0.0,
-            "CrossingDetected": 0,
-            "DistanceToCrossing": 0.0,
-        }
+      self.static_features = np.zeros(self.static_dim, dtype=np.float32)
+      self.task_features = np.zeros(self.task_dim, dtype=np.float32)  # Flatten task features
       
       # Generate random number of objects (variable length)
       num_objects = self.max_objects
-      object_features = np.zeros((num_objects, self.object_feature_dim), dtype=np.float32)
+      self.object_features = np.zeros((num_objects, self.object_feature_dim), dtype=np.float32)
 
-      # Store observation
-      self.current_observation = {
-          "static": static_features,
-          "task": task_features,
-          "objects": object_features,
-      }
+      # Combine all features into one flattened array
+      self.current_observation = np.concatenate([self.static_features, self.task_features.flatten(), self.object_features.flatten()])
 
       return self.current_observation, {}
   
@@ -80,6 +73,7 @@ class CarlaEnv(gym.Env):
       """
       Apply an action and return the new observation, reward, and done.
       """
+      print("stepping")
       # Apply action
       action = action[0]
       logger.info(f"Executing step with action {action}")
@@ -100,7 +94,7 @@ class CarlaEnv(gym.Env):
         self.current_observation = self._get_perfect_obs()      # use observation from Carla
       else:
         self.current_observation = self._get_obs()              # use observation from computer vision
-
+      
       return self.current_observation, reward, terminated, truncated, info
 
 
@@ -123,6 +117,10 @@ class CarlaEnv(gym.Env):
     for obj in object_list:
       if obj.type not in [ObjectType.TRAFFIC_LIGHT, ObjectType.TRAFFIC_SIGN] and obj.distance <= self.relevant_distance+1:
         obj.distance = min(1, obj.distance / self.relevant_distance)
+        if obj.type == ObjectType.PEDESTRIAN:
+          obj.type = 0              # pedestrians
+        else:
+          obj.type = 1              # vehicles, bicycles, motorcycles
         filtered_objects.append(obj)
     # Sort by decreasing distance level
     filtered_objects.sort(key=lambda obj: obj.distance)         # because confidence = 1 (perfect information)
@@ -132,21 +130,29 @@ class CarlaEnv(gym.Env):
     else:
       # Perform zero padding
       padding_needed = self.max_objects - len(filtered_objects) 
-      padding = [Object(type=None, boundingBox=None, confidence=0.0, distance=0.0, angle=0.0) for _ in range(padding_needed)] 
+      padding = [Object(type=random.randint(0, 1), confidence=0.0, distance=0.0, angle=0.0) for _ in range(padding_needed)] 
       filtered_objects.extend(padding)
 
-    # Create the observation 
-    observation = { 
-        "static": np.array([speed_limit, current_speed], dtype=np.float32), 
-        "task": { 
-          "StopFlag": 0,                # = stop_flag
-          "DistanceToStopLine": 0,      # = distance_to_stop (if distance_to_stop = None: distance_to_stop = 0) -> normalize + clipping
-          "CrossingDetected": 0,        # = crossing_flag
-          "DistanceToCrossing": 0,      # = distance_to_crossing (if distance_to_crossing = None: distance_to_crossing = 0)  -> normalize + clipping
-          }, 
-        "objects": np.array([[obj.type, obj.boundingBox, obj.confidence, obj.distance, obj.angle] for obj in filtered_objects], dtype=np.float32), 
-        } 
-  
+    logger.info(f"Object list: {object_list}")
+    logger.info(f"Filtered objects observation: {filtered_objects}")
+    logger.info(f"Speed limit: {speed_limit}")
+    logger.info(f"Current speed: {current_speed}")
+    logger.info(f"Stop flag: {stop_flag}")
+
+    # Static features (speed_limit, current_speed)
+    static_features = np.array([speed_limit, current_speed], dtype=np.float32)
+    
+    # Task features
+    task_features = np.array([stop_flag, 0, 0, 0], dtype=np.float32)  # Placeholder for "DistanceToStopLine", "CrossingDetected", "DistanceToCrossing"
+    
+    # Object features
+    object_features = np.array([[obj.type, obj.confidence, obj.distance, obj.angle] for obj in filtered_objects], dtype=np.float32)
+    
+    # Flatten the entire observation into a single vector
+    observation = np.concatenate([static_features, task_features, object_features.flatten()])
+
+    logger.info(f"Observation: {observation}")
+
     return observation
 
   # TO DO
@@ -160,25 +166,29 @@ class CarlaEnv(gym.Env):
     # task_features = {"StopFlag": stop_flag, "DistanceToStopLine":distance_to_stopline]
     # object_features = [[class, angle, distance], [class, angle, distance], [class, angle, distance], ...] 
     
-    # random to test
+    # Static features (speed_limit, current_speed)
     static_features = np.random.uniform(0, 100, size=(self.static_dim,))
-    task_features = {
-            "StopFlag": np.random.choice([0, 1]),             # Randomly decide if stopping is required
-            "DistanceToStopLine": np.random.randint(0, 101),  # Random distance to stop line
-            "CrossingDetected": np.random.choice([0, 1]),     # Randomly decide if stopping is required
-            "DistanceToCrossing": np.random.randint(0, 101),  # Random distance to pedestrian crossing
-        }
+    
+    # Task features (StopFlag, DistanceToStopLine, CrossingDetected, DistanceToCrossing)
+    task_features = np.array([
+        np.random.choice([0, 1]),  # Random StopFlag
+        np.random.randint(0, 101),  # Random distance to stop line
+        np.random.choice([0, 1]),  # Random CrossingDetected
+        np.random.randint(0, 101)   # Random distance to crossing
+    ], dtype=np.float32)
+    
+    # Object features (randomly generated)
     num_objects = np.random.randint(1, self.max_objects + 1)
     object_features = np.random.uniform(-1, 1, size=(num_objects, self.object_feature_dim))
-    padded_objects = np.zeros((self.max_objects, self.object_feature_dim), dtype=np.float32)    # Pad objects to max_objects
+    
+    # Padding to ensure we have max_objects number of objects
+    padded_objects = np.zeros((self.max_objects, self.object_feature_dim), dtype=np.float32)
     padded_objects[:num_objects] = object_features
+    
+    # Flatten the entire observation into a single vector
+    observation = np.concatenate([static_features, task_features, padded_objects.flatten()])
 
-    # Create the observation
-    return {
-      "static": static_features,
-      "task": task_features,
-      "objects": padded_objects,
-    }
+    return observation
 
 
   def _get_reward(self, action):
@@ -199,11 +209,10 @@ class CarlaEnv(gym.Env):
       stop_flag = 0
       
     """ Filter objects """
-    # Remove traffic lights and traffic signs
-    filtered_objects = [
-      obj for obj in object_list
-      if obj.type not in [ObjectType.TRAFFIC_LIGHT, ObjectType.TRAFFIC_SIGN]
-    ]
+    filtered_objects = []
+    for obj in object_list:
+      if obj.type not in [ObjectType.TRAFFIC_LIGHT, ObjectType.TRAFFIC_SIGN]:
+        filtered_objects.append(obj)
     
     """ Reward """
     # Initialize rewards (= 0 -> no influence)
@@ -293,3 +302,4 @@ class CarlaEnv(gym.Env):
     Determine if the episode is terminated based on task-specific or static conditions.
     """
     return self.collisionFlag  
+  

@@ -43,7 +43,7 @@ def get_objects(world: CarlaWorld) -> List[Object]:
     objects = [
         Object(
             type=type,
-            boundingBox=box,
+            #boundingBox=box,
             confidence=1.0,                 # added
             distance=distance_info.depth,
             angle=calculate_anlge(
@@ -62,7 +62,7 @@ def get_current_max_speed(world: CarlaWorld) -> float:
 
 def get_current_speed(world: CarlaWorld) -> float:
     """Get the current speed of the vehicle"""
-    return world.car.velocity
+    return world.car.velocity.magnitude
 
 
 def get_current_affecting_light_state(world: CarlaWorld) -> CarlaTrafficLightState:

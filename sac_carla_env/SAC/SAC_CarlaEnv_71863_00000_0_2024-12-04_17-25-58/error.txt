@@ -1,0 +1,31 @@
+Failure # 1 (occurred at 2024-12-04_17-26-01)
+Traceback (most recent call last):
+  File "/opt/carla-simulator/Intercept2/DAI_project/.venv/lib/python3.8/site-packages/ray/tune/execution/ray_trial_executor.py", line 1070, in get_next_executor_event
+    future_result = ray.get(ready_future)
+  File "/opt/carla-simulator/Intercept2/DAI_project/.venv/lib/python3.8/site-packages/ray/_private/client_mode_hook.py", line 105, in wrapper
+    return func(*args, **kwargs)
+  File "/opt/carla-simulator/Intercept2/DAI_project/.venv/lib/python3.8/site-packages/ray/_private/worker.py", line 2311, in get
+    raise value
+ray.exceptions.RayActorError: The actor died because of an error raised in its creation task, [36mray::SAC.__init__()[39m (pid=30176, ip=143.129.43.21, repr=SAC)
+  File "/opt/carla-simulator/Intercept2/DAI_project/.venv/lib/python3.8/site-packages/ray/rllib/algorithms/sac/sac.py", line 344, in __init__
+    super().__init__(*args, **kwargs)
+  File "/opt/carla-simulator/Intercept2/DAI_project/.venv/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 441, in __init__
+    super().__init__(
+  File "/opt/carla-simulator/Intercept2/DAI_project/.venv/lib/python3.8/site-packages/ray/tune/trainable/trainable.py", line 169, in __init__
+    self.setup(copy.deepcopy(self.config))
+  File "/opt/carla-simulator/Intercept2/DAI_project/.venv/lib/python3.8/site-packages/ray/rllib/algorithms/algorithm.py", line 566, in setup
+    self.workers = WorkerSet(
+  File "/opt/carla-simulator/Intercept2/DAI_project/.venv/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 169, in __init__
+    self._setup(
+  File "/opt/carla-simulator/Intercept2/DAI_project/.venv/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 259, in _setup
+    self._local_worker = self._make_worker(
+  File "/opt/carla-simulator/Intercept2/DAI_project/.venv/lib/python3.8/site-packages/ray/rllib/evaluation/worker_set.py", line 941, in _make_worker
+    worker = cls(
+  File "/opt/carla-simulator/Intercept2/DAI_project/.venv/lib/python3.8/site-packages/ray/rllib/evaluation/rollout_worker.py", line 585, in __init__
+    self.env = env_creator(copy.deepcopy(self.env_context))
+  File "/opt/carla-simulator/Intercept2/DAI_project/DAI/environment/env_RL/train.py", line 76, in carla_env_creator
+    return TimeLimit(CarlaEnv(env_config), max_episode_steps=1000)
+  File "/opt/carla-simulator/Intercept2/DAI_project/DAI/environment/env_RL/carlaEnv.py", line 29, in __init__
+    self.world = config["world"]
+KeyError: 'world'
+

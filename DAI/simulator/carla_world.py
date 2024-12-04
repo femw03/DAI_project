@@ -64,10 +64,12 @@ class CarlaWorld(Thread, World):
 
     def setup_car(self):
         """Spawns the car and attaches the rgb- and depth camera to it and setups their listeners"""
+        logger.info("Setup car")
+
         world = self.client.world
         car_bp = world.blueprint_library.filter("vehicle.*")[0]
         location = random.choice(world.map.spawn_points)
-        logger.info(f"Spawning {car_bp} at {location}")
+        #logger.info(f"Spawning {car_bp} at {location}")
         self.car = world.spawn_vehicle(car_bp, location)
 
         rgb_camera_bp = CarlaRGBBlueprint.from_blueprint(
@@ -80,7 +82,7 @@ class CarlaWorld(Thread, World):
         self.rgb_camera = self.car.add_camera(rgb_camera_bp)
 
         def save_rgb_image(image: CarlaImage):
-            logger.debug("received image")
+            #logger.debug("received image")
             self.rgb_image = image.numpy_image
 
         self.rgb_camera.listen(save_rgb_image)  # Actor may not lose scope
@@ -100,9 +102,9 @@ class CarlaWorld(Thread, World):
             if numpy_image is None:
                 return
             self.depth_image = numpy_image
-            logger.debug(
-                f"Depth image [{self.depth_image.min(), self.depth_image.max()}] shape: {self.depth_image.shape}"
-            )
+            #logger.debug(
+            #    f"Depth image [{self.depth_image.min(), self.depth_image.max()}] shape: {self.depth_image.shape}"
+            #)
 
         self.depth_camera.listen(save_depth_image)
 
@@ -117,7 +119,7 @@ class CarlaWorld(Thread, World):
         self.segm_camera = self.car.add_camera(segm_camera_bp)
 
         def save_segm_image(image: CarlaImage):
-            logger.debug("received image")
+            #logger.debug("received image")
             self.segm_image = image.numpy_image
 
         self.segm_camera.listen(save_segm_image)
@@ -125,7 +127,7 @@ class CarlaWorld(Thread, World):
         self.collision_detector = self.car.add_colision_detector()
 
         def save_collision(event: CarlaCollisionEvent) -> None:
-            logger.warning("Car has collided")
+            #logger.warning("Car has collided")
             self.collision = event
 
         self.collision_detector.listen(save_collision)
@@ -133,6 +135,7 @@ class CarlaWorld(Thread, World):
 
     def setup(self):
         """Spawns the car and external actors"""
+        logger.info("Setup Carla world")
         world = self.client.world
         world.delta_seconds = 1 / self.tickrate
         world.synchronous_mode = True
@@ -141,9 +144,10 @@ class CarlaWorld(Thread, World):
 
         self.setup_car()
 
-        self.cars = spawn_vehicles(self.client, self.number_of_cars)
-        self.pedestrians = spawn_walkers(self.client, self.number_of_walkers)
-        self.all_actors = [*self.cars, *self.pedestrians]
+        # debugging => no vehicles, no walkers!!!
+        #self.cars = spawn_vehicles(self.client, self.number_of_cars)
+        #self.pedestrians = spawn_walkers(self.client, self.number_of_walkers)
+        #self.all_actors = [*self.cars, *self.pedestrians]
         self.loop_running = True
 
     def run(self):
@@ -155,7 +159,7 @@ class CarlaWorld(Thread, World):
             framecount = 0
             clock = Clock()
             while self.loop_running:
-                logger.debug(f"frame: {framecount}   ")
+                #logger.debug(f"frame: {framecount}   ")
                 clock.tick(self.tickrate)
                 # self.collision = None # Reset the collision state smartly?
                 self.client.world.tick()
@@ -163,7 +167,7 @@ class CarlaWorld(Thread, World):
                 self._notify_tick_listeners()
 
                 if self.rgb_image is not None and self.depth_image is not None:
-                    logger.debug("Sending an observation")
+                    #logger.debug("Sending an observation")
                     self._set_data(
                         CarlaData(
                             rgb_image=NumpyImage(self.rgb_image, self.view_FOV),
