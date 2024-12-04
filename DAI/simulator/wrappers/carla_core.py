@@ -180,6 +180,10 @@ class CarlaActor:
     def velocity(self) -> CarlaVector3D:
         return CarlaVector3D(self.actor.get_velocity())
 
+    @velocity.setter
+    def velocity(self, new_velocity: CarlaVector3D) -> None:
+        self.actor.set_target_velocity(new_velocity.vector)
+
     @property
     def location(self) -> CarlaLocation:
         return CarlaLocation.from_native(self.actor.get_location())
@@ -187,6 +191,14 @@ class CarlaActor:
     @location.setter
     def location(self, new_location: CarlaLocation):
         self.actor.set_location(new_location.native)
+
+    @property
+    def transform(self) -> carla.Transform:
+        return self.actor.get_transform()
+
+    @transform.setter
+    def transform(self, new_transform: carla.Transform) -> None:
+        self.actor.set_transform(new_transform)
 
     @property
     def state(self):

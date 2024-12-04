@@ -20,6 +20,7 @@ from .wrappers import (
     CarlaDepthBlueprint,
     CarlaImage,
     CarlaRGBBlueprint,
+    CarlaVector3D,
     CarlaVehicle,
 )
 
@@ -53,13 +54,13 @@ class CarlaWorld(Thread, World):
         self.number_of_cars = cars
         self.paused = False
 
+        self.client = CarlaClient(port=port)
         self.world = self.client.world
 
         self.rgb_image: Optional[np.ndarray] = None
         self.depth_image: Optional[np.ndarray] = None
         self.segm_image: Optional[np.ndarray] = None
         self.collision: Optional[CarlaCollisionEvent] = None
-        self.client = CarlaClient(port=port)
         self.car: Optional[CarlaVehicle] = None
         self.all_actors: List[CarlaActor] = []
         self.cars: List[CarlaActor] = []
@@ -210,5 +211,10 @@ class CarlaWorld(Thread, World):
         self.paused = True
         # Ensure world is not being ticked anymore
         self.await_next_tick()
-        self.car.location = random.choice(self.world.map.spawn_points).location
+        self.car.transform = random.choice(self.world.map.spawn_points)
+        self.car.velocity = CarlaVector3D.fromxyz(
+            0,
+            0,
+            0,
+        )
         self.paused = False

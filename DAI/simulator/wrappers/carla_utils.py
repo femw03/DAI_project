@@ -100,3 +100,7 @@ class CarlaVector3D:
     def magnitude(self) -> float:
         """Calculate the magnitude of the vector"""
         return math.sqrt(self.x**2 + self.y**2 + self.z**2)
+
+    @staticmethod
+    def fromxyz(x: float, y: float, z: float) -> CarlaVector3D:
+        return CarlaVector3D(carla.Vector3D(x, y, z))
