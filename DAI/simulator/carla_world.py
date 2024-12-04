@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from datetime import datetime
 from threading import Thread
 from typing import List, Optional
 
@@ -158,6 +159,7 @@ class CarlaWorld(Thread, World):
                 clock.tick(self.tickrate)
                 # self.collision = None # Reset the collision state smartly?
                 self.client.world.tick()
+                now = datetime.now()
                 self._notify_tick_listeners()
 
                 if self.rgb_image is not None and self.depth_image is not None:
@@ -171,15 +173,28 @@ class CarlaWorld(Thread, World):
                                 converter=lambda x: (x / 255) * 1000,
                             ),
                             current_speed=self.car.velocity.magnitude,
+                            time_stamp=now,
                         )
                     )
 
-            # TODO apply car control
+            self.apply_control()
 
         finally:
             self.client.world.synchronous_mode = False
             delete_actors(self.client, self.all_actors)
             self._notify_tick_listeners()
+
+    def apply_control(self) -> None:
+        """Applies the current speed to the car"""
+        control = self.car.control
+        control.throttle = 0
+        control.brake = 0
+        speed = self._speed
+        if speed < 0.5:
+            control.brake = 1 - (2 * speed)
+        else:
+            control.throttle = 2 * speed
+        self.car.control = control
 
     def stop(self) -> None:
         logger.info("Stopping simulation")
