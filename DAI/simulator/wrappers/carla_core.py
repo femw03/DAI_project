@@ -184,6 +184,10 @@ class CarlaActor:
     def location(self) -> CarlaLocation:
         return CarlaLocation.from_native(self.actor.get_location())
 
+    @location.setter
+    def location(self, new_location: CarlaLocation):
+        self.actor.set_location(new_location.native)
+
     @property
     def state(self):
         return self.actor.actor_state

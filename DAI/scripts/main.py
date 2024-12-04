@@ -60,6 +60,7 @@ def stop() -> None:
 world.add_listener(set_view_data)
 
 visuals.on_quit = stop
+visuals.on_reset = world.reset
 
 world.start()
 visuals.start()

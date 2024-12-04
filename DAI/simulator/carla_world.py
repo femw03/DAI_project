@@ -51,6 +51,9 @@ class CarlaWorld(Thread, World):
         self.port = port
         self.number_of_walkers = walkers
         self.number_of_cars = cars
+        self.paused = False
+
+        self.world = self.client.world
 
         self.rgb_image: Optional[np.ndarray] = None
         self.depth_image: Optional[np.ndarray] = None
@@ -133,12 +136,11 @@ class CarlaWorld(Thread, World):
 
     def setup(self):
         """Spawns the car and external actors"""
-        world = self.client.world
-        world.delta_seconds = 1 / self.tickrate
-        world.synchronous_mode = True
+
+        self.world.delta_seconds = 1 / self.tickrate
+        self.world.synchronous_mode = True
         tm = self.client.get_traffic_manager()
         tm.synchronous_mode = True
-
         self.setup_car()
 
         self.cars = spawn_vehicles(self.client, self.number_of_cars)
@@ -155,12 +157,15 @@ class CarlaWorld(Thread, World):
             framecount = 0
             clock = Clock()
             while self.loop_running:
+                self._notify_tick_listeners()
+                if self.paused:  # Don't tick the world while paused
+                    clock.tick()
+                    continue
                 logger.debug(f"frame: {framecount}   ")
                 clock.tick(self.tickrate)
                 # self.collision = None # Reset the collision state smartly?
                 self.client.world.tick()
                 now = datetime.now()
-                self._notify_tick_listeners()
 
                 if self.rgb_image is not None and self.depth_image is not None:
                     logger.debug("Sending an observation")
@@ -189,6 +194,7 @@ class CarlaWorld(Thread, World):
         control = self.car.control
         control.throttle = 0
         control.brake = 0
+        control.steer = 0
         speed = self._speed
         if speed < 0.5:
             control.brake = 1 - (2 * speed)
@@ -199,3 +205,10 @@ class CarlaWorld(Thread, World):
     def stop(self) -> None:
         logger.info("Stopping simulation")
         self.loop_running = False
+
+    def reset(self) -> None:
+        self.paused = True
+        # Ensure world is not being ticked anymore
+        self.await_next_tick()
+        self.car.location = random.choice(self.world.map.spawn_points).location
+        self.paused = False
