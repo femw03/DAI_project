@@ -16,6 +16,12 @@ from ..interfaces import (
     CruiseControlAgent,
 )
 from ..simulator import CarlaWorld
+from ..simulator.extract import (
+    get_current_affecting_light_state,
+    get_current_max_speed,
+    get_current_speed,
+    get_objects,
+)
 from ..utils import timeit
 from ..visuals import Visuals
 
@@ -69,9 +75,13 @@ while is_running:
     action = agent.get_action(features)
     world.set_speed(action)
     world.await_next_tick()
+    get_current_speed(world)
+    get_current_max_speed(world)
+    get_objects(world)
+    get_current_affecting_light_state(world)
     if len(world.pedestrians) > 0:
         walker = world.pedestrians[0]
-        logger.info(f"{walker.location}, {walker.velocity},{walker.state}")
+        logger.debug(f"{walker.location}, {walker.velocity},{walker.state}")
 
 
 world.join()

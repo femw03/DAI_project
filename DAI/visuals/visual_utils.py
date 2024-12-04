@@ -69,7 +69,7 @@ def add_static_information(
     )
     cv2.putText(
         image,
-        f"light = {data.current_light}",
+        f"light = {data.stop_flag}",
         (10, 45),
         FONT,
         FONT_SCALE,

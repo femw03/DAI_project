@@ -39,7 +39,9 @@ class CarlaWorld:
     ) -> CarlaActor:
         try:
             actor = self.world.spawn_actor(
-                blueprint.blueprint, location, attach_to=parent.actor
+                blueprint=blueprint.blueprint,
+                transform=location,
+                attach_to=parent.actor,
             )
         except Exception as e:
             logger.error(
@@ -169,7 +171,7 @@ class CarlaActor:
 
     def add_colision_detector(self) -> CarlaCollisionSensor:
         blueprint = self.world.blueprint_library.filter("sensor.other.collision")[0]
-        actor = self.world.spawn_actor(blueprint, None, parent=self)
+        actor = self.world.spawn_actor(blueprint, carla.Transform(), parent=self)
         sensor = CarlaCollisionSensor(actor.actor, self.world, self)
         self.sensors.append(sensor)
         return sensor
@@ -283,12 +285,52 @@ class CarlaVehicle(CarlaActor):
         return super().destroy()
 
     @property
+    def control(self) -> CarlaVehicleControl:
+        return CarlaVehicleControl(self.actor.get_control())
+
+    @control.setter
+    def control(self, new_control: CarlaVehicleControl) -> None:
+        self.actor.apply_control(new_control.control)
+
+    @property
     def current_max_speed(self) -> float:
         return self.actor.get_speed_limit()
 
     @property
     def get_traffic_light_state(self) -> CarlaTrafficLightState:
         return CarlaTrafficLightState.from_native(self.actor.get_traffic_light_state())
+
+
+class CarlaVehicleControl:
+    """A wrapper for: https://carla.readthedocs.io/en/latest/python_api/#carla.VehicleControl"""
+
+    def __init__(self, control: carla.VehicleControl) -> None:
+        assert isinstance(control, carla.VehicleControl)
+        self.control = control
+
+    @property
+    def throttle(self) -> float:
+        return self.control.throttle
+
+    @throttle.setter
+    def throttle(self, value: float) -> None:
+        self.control.throttle = value
+
+    @property
+    def steer(self) -> float:
+        return self.control.steer
+
+    @steer.setter
+    def steer(self, value: float) -> None:
+        self.control.steer = value
+
+    @property
+    def brake(self) -> float:
+        return self.control.brake
+
+    @brake.setter
+    def brake(self, value: float) -> None:
+        self.control.brake = value
 
 
 T = TypeVar("T")
@@ -300,7 +342,7 @@ class CarlaSensor(Generic[T], CarlaActor):
     def __init__(
         self, sensor: carla.Sensor, world: CarlaWorld, vehicle: CarlaVehicle
     ) -> None:
-        super(CarlaActor, self).__init__(self, sensor, world)
+        CarlaActor.__init__(self, sensor, world)
         assert isinstance(
             sensor, carla.Sensor
         ), f"Initiate CarlaSensor with carla.Sensor and not {type(sensor)}"
@@ -310,7 +352,7 @@ class CarlaSensor(Generic[T], CarlaActor):
         self.actor.stop()
 
     def listen(self, callback: Callable[[T], None]) -> None:
-        self.actor.list(callback)
+        self.actor.listen(callback)
         assert self.actor.is_listening
 
 
@@ -320,7 +362,7 @@ class CarlaCamera(CarlaSensor["CarlaImage"]):
     def __init__(
         self, sensor: carla.Sensor, world: CarlaWorld, vehicle: CarlaVehicle
     ) -> None:
-        super(CarlaSensor, self).__init__(sensor, world, vehicle)
+        CarlaSensor.__init__(self, sensor, world, vehicle)
 
     def listen(self, callback: Callable[[CarlaImage], None]) -> None:
         def convert_and_listen(image: carla.Image) -> None:
