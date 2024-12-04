@@ -44,6 +44,7 @@ def get_objects(world: CarlaWorld) -> List[Object]:
         Object(
             type=type,
             boundingBox=box,
+            confidence=1.0,                 # added
             distance=distance_info.depth,
             angle=calculate_anlge(
                 distance_info.location[0], world.view_FOV, world.view_width

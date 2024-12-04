@@ -1,5 +1,5 @@
 import numpy as np
-import gym
+import gymnasium as gym
 
 from carlaEnv import CarlaEnv
 
@@ -9,6 +9,7 @@ config = {
     "max_steps": 1000,      # Maximum number of steps per episode.
 }
 
+#def custom_env_creator
 # Initialize the environment
 env = CarlaEnv(config)
 
@@ -19,9 +20,9 @@ def test_environment(env):
 
     while True:
         action = [0.0, 1.0]
-        obs,r,done,info = env.step(action)
+        obs, reward, terminated, truncated, info = env.step(action)
 
-        if done:
+        if terminated or truncated:
             obs = env.reset()
 
 # Run the test
