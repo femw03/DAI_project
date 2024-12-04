@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, List, Optional
+from enum import Enum
+from typing import Callable, Generic, List, Optional, TypeVar
 
 import carla
 import numpy as np
@@ -154,6 +155,7 @@ class CarlaActor:
         ), f"Instantiate a CarlaActor with a carla.Actor object instead of {type(actor)}"
         self.actor = actor
         self.world = world
+        self.sensors: List[CarlaSensor] = []
 
     def __repr__(self) -> str:
         return str(self.actor)
@@ -164,6 +166,13 @@ class CarlaActor:
         except Exception as e:
             logger.error(f"Error when dispawning {self.actor}: {e}")
             return False
+
+    def add_colision_detector(self) -> CarlaCollisionSensor:
+        blueprint = self.world.blueprint_library.filter("sensor.other.collision")[0]
+        actor = self.world.spawn_actor(blueprint, None, parent=self)
+        sensor = CarlaCollisionSensor(actor.actor, self.world, self)
+        self.sensors.append(sensor)
+        return sensor
 
     @property
     def velocity(self) -> CarlaVector3D:
@@ -244,7 +253,6 @@ class CarlaVehicle(CarlaActor):
             vehicle, carla.Vehicle
         ), f"Instantiate CarlaVehicle with a vehicle instead of {type(vehicle)}"
         self._autopilot = False
-        self.sensors: List[CarlaSensor] = []
 
     @property
     def autopilot(self) -> bool:
@@ -274,14 +282,25 @@ class CarlaVehicle(CarlaActor):
             sensor.destroy()
         return super().destroy()
 
+    @property
+    def current_max_speed(self) -> float:
+        return self.actor.get_speed_limit()
 
-class CarlaSensor(CarlaActor):
+    @property
+    def get_traffic_light_state(self) -> CarlaTrafficLightState:
+        return CarlaTrafficLightState.from_native(self.actor.get_traffic_light_state())
+
+
+T = TypeVar("T")
+
+
+class CarlaSensor(Generic[T], CarlaActor):
     """A sensor often attached to a vehicle"""
 
     def __init__(
         self, sensor: carla.Sensor, world: CarlaWorld, vehicle: CarlaVehicle
     ) -> None:
-        super().__init__(sensor, world)
+        super(CarlaActor, self).__init__(self, sensor, world)
         assert isinstance(
             sensor, carla.Sensor
         ), f"Initiate CarlaSensor with carla.Sensor and not {type(sensor)}"
@@ -290,14 +309,18 @@ class CarlaSensor(CarlaActor):
     def stop(self) -> None:
         self.actor.stop()
 
+    def listen(self, callback: Callable[[T], None]) -> None:
+        self.actor.list(callback)
+        assert self.actor.is_listening
 
-class CarlaCamera(CarlaSensor):
+
+class CarlaCamera(CarlaSensor["CarlaImage"]):
     """A special type of sensor"""
 
     def __init__(
         self, sensor: carla.Sensor, world: CarlaWorld, vehicle: CarlaVehicle
     ) -> None:
-        super().__init__(sensor, world, vehicle)
+        super(CarlaSensor, self).__init__(sensor, world, vehicle)
 
     def listen(self, callback: Callable[[CarlaImage], None]) -> None:
         def convert_and_listen(image: carla.Image) -> None:
@@ -305,8 +328,14 @@ class CarlaCamera(CarlaSensor):
             converted = CarlaImage.from_native(image)
             callback(converted)
 
-        self.actor.listen(convert_and_listen)
-        assert self.actor.is_listening
+        super().listen(convert_and_listen)
+
+
+class CarlaCollisionSensor(CarlaSensor["CarlaCollisionEvent"]):
+    def __init__(
+        self, sensor: carla.Sensor, world: CarlaWorld, vehicle: CarlaVehicle
+    ) -> None:
+        super().__init__(sensor, world, vehicle)
 
 
 @dataclass
@@ -344,3 +373,29 @@ class CarlaImage:
         self.native.convert(converter.converter)
 
         return self
+
+
+@dataclass
+class CarlaCollisionEvent:
+    actor: CarlaActor
+    other_actor: CarlaActor
+
+    @staticmethod
+    def from_native(native: carla.CollisionEvent) -> CarlaCollisionEvent:
+        return CarlaCollisionEvent(
+            actor=CarlaActor(native.actor), other_actor=CarlaActor(native.other_actor)
+        )
+
+
+class CarlaTrafficLightState(Enum):
+    RED = carla.TrafficLightState.Red
+    YELLOW = carla.TrafficLightState.Yellow
+    GREEN = carla.TrafficLightState.Green
+    OFF = carla.TrafficLightState.Off
+    UNKNOWN = carla.TrafficLightState.Unknown
+
+    @staticmethod
+    def from_native(native: carla.TrafficLightState):
+        return next(
+            (state for state in CarlaTrafficLightState if state.value == native), None
+        )

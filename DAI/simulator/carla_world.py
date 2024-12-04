@@ -14,6 +14,7 @@ from .spawner import delete_actors, spawn_vehicles, spawn_walkers
 from .wrappers import (
     CarlaActor,
     CarlaClient,
+    CarlaCollisionEvent,
     CarlaColorConverter,
     CarlaDepthBlueprint,
     CarlaImage,
@@ -52,6 +53,8 @@ class CarlaWorld(Thread, World):
 
         self.rgb_image: Optional[np.ndarray] = None
         self.depth_image: Optional[np.ndarray] = None
+        self.segm_image: Optional[np.ndarray] = None
+        self.collision: Optional[CarlaCollisionEvent] = None
         self.client = CarlaClient(port=port)
         self.car: Optional[CarlaVehicle] = None
         self.all_actors: List[CarlaActor] = []
@@ -101,6 +104,30 @@ class CarlaWorld(Thread, World):
             )
 
         self.depth_camera.listen(save_depth_image)
+
+        segm_camera_bp = world.blueprint_library.filter(
+            "sensor.camera.semantic_segmentation"
+        )[0]
+
+        segm_camera_bp["image_size_x"] = str(self.view_width)
+        segm_camera_bp["image_size_y"] = str(self.view_height)
+        segm_camera_bp["fov"] = str(self.view_FOV)
+
+        self.segm_camera = self.car.add_camera(segm_camera_bp)
+
+        def save_segm_image(image: CarlaImage):
+            logger.debug("received image")
+            self.segm_image = image.numpy_image
+
+        self.segm_camera.listen(save_segm_image)
+
+        self.collision_detector = self.car.add_colision_detector()
+
+        def save_collision(event: CarlaCollisionEvent) -> None:
+            logger.warning("Car has collided")
+            self.collision = event
+
+        self.collision_detector.listen(save_collision)
         self.car.autopilot = True
 
     def setup(self):
@@ -129,6 +156,7 @@ class CarlaWorld(Thread, World):
             while self.loop_running:
                 logger.debug(f"frame: {framecount}   ")
                 clock.tick(self.tickrate)
+                # self.collision = None # Reset the collision state smartly?
                 self.client.world.tick()
                 self._notify_tick_listeners()
 
