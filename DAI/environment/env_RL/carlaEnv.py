@@ -9,6 +9,7 @@ class CarlaEnv(gym.Env):
   def __init__(self, config):
     # Configuration for the environment
     self.config = config
+    self.perfect = config["perfect"]
     self.static_dim = 2                     # Static features space: speed limit, current speed
     self.task_dim = 2                       # Task-specific features space: StopFlag, distance to stop line
     self.object_feature_dim = 3             # Number of object detection features per object: class embedding, angle, distance
@@ -92,11 +93,15 @@ class CarlaEnv(gym.Env):
     Generate the current observation combining static features, task-specific features,
     and padded object detection features.
     """
-    
     # Output computer vision network: [static_features, task_features, object_features]
     # static_features = [speed_limit, current_speed]
     # task_features = {"StopFlag": stop_flag, "DistanceToStopLine":distance_to_stopline]
     # object_features = [[class, angle, distance], [class, angle, distance], [class, angle, distance], ...] 
+    
+    if self.perfect:      # use observation from Carla
+      pass
+    else:                 # use observation from computer vision
+      pass
     
     # random to test
     static_features = np.random.uniform(0, 100, size=(self.static_dim,))
