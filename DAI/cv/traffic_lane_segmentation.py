@@ -8,7 +8,7 @@ from PIL import Image
 from torch.optim.adamw import AdamW
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader, Dataset, random_split
-from torchvision.models.segmentation import deeplabv3_mobilenet_v3_large
+from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 from torchvision.transforms import transforms
 
 
@@ -68,6 +68,7 @@ class TrafficLaneSegmentationDataModule(L.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
+            persistent_workers=True,
         )
 
     def val_dataloader(self):
@@ -76,6 +77,7 @@ class TrafficLaneSegmentationDataModule(L.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
+            persistent_workers=True,
         )
 
     def test_dataloader(self):
@@ -84,6 +86,7 @@ class TrafficLaneSegmentationDataModule(L.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
+            persistent_workers=True,
         )
 
 
@@ -91,7 +94,7 @@ class TrafficLaneSegmentationModel(L.LightningModule):
     def __init__(self):
         super().__init__()
         # Use MobileNetV2 as backbone for real-time performance
-        self.model = deeplabv3_mobilenet_v3_large(pretrained=1)
+        self.model = lraspp_mobilenet_v3_large(num_classes=1)
         self.loss = nn.BCEWithLogitsLoss()
 
     def forward(self, x):
@@ -105,7 +108,6 @@ class TrafficLaneSegmentationModel(L.LightningModule):
     ):
         images, masks = batch
         # Ensure masks are float and same shape as output
-        masks = masks.float().unsqueeze(1)
         outputs = self.forward(images)
         loss = self.loss(outputs, masks)
         self.log("train_loss", loss)
@@ -115,7 +117,6 @@ class TrafficLaneSegmentationModel(L.LightningModule):
         self, batch: Tuple[torch.FloatTensor, torch.IntTensor], batch_idx
     ):
         images, masks = batch
-        masks = masks.float().unsqueeze(1)
         outputs = self(images)
         loss = self.loss(outputs, masks)
         self.log("val_loss", loss)
