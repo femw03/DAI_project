@@ -12,6 +12,7 @@ dependencies = [
     "numpy>=1.24.4",
     "opencv-python>=4.10.0.84",
     "pygame>=2.6.1",
+    "shapely>=2.0.6",
     "ultralytics>=8.3.29",
     "wandb>=0.18.7",
     "gymnasium==1.0.0",
