@@ -24,7 +24,9 @@ from .carla_utils import (  # noqa: F401
     CarlaCommand,
     CarlaLocation,
     CarlaVector3D,
+    CarlaWaypoint,
     DestroyActorCommand,
     SetAutoPiloteCommand,
     SpawnActorCommand,
 )
+from .control import GlobalRoutePlanner, LocalPlanner, RoadOption  # noqa: F401

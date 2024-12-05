@@ -28,7 +28,7 @@ from ..visuals import Visuals
 
 class MockCruiseControlAgent(CruiseControlAgent):
     def get_action(self, state: CarlaFeatures) -> float:
-        return 1
+        return 0.82
 
 
 logger.remove()

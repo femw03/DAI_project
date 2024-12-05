@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from datetime import datetime
 from threading import Thread
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 from loguru import logger
@@ -19,9 +19,14 @@ from .wrappers import (
     CarlaColorConverter,
     CarlaDepthBlueprint,
     CarlaImage,
+    CarlaLocation,
     CarlaRGBBlueprint,
     CarlaVector3D,
     CarlaVehicle,
+    CarlaWaypoint,
+    GlobalRoutePlanner,
+    LocalPlanner,
+    RoadOption,
 )
 
 
@@ -56,6 +61,8 @@ class CarlaWorld(Thread, World):
 
         self.client = CarlaClient(port=port)
         self.world = self.client.world
+        self.traffic_manager = self.client.get_traffic_manager()
+        self.global_planner = GlobalRoutePlanner(self.world.map)
 
         self.rgb_image: Optional[np.ndarray] = None
         self.depth_image: Optional[np.ndarray] = None
@@ -133,7 +140,11 @@ class CarlaWorld(Thread, World):
             self.collision = event
 
         self.collision_detector.listen(save_collision)
-        self.car.autopilot = True
+
+        self.local_planner = LocalPlanner(self.car, self.world.delta_seconds)
+        route = self.generate_new_route(self.car.location)
+        self.local_planner.set_global_plan(route)
+        self.car.transform = route[0][0].transform
 
     def setup(self):
         """Spawns the car and external actors"""
@@ -146,7 +157,7 @@ class CarlaWorld(Thread, World):
 
         self.cars = spawn_vehicles(self.client, self.number_of_cars)
         self.pedestrians = spawn_walkers(self.client, self.number_of_walkers)
-        self.all_actors = [*self.cars, *self.pedestrians]
+        self.all_actors = [*self.cars, *self.pedestrians, self.car]
         self.loop_running = True
 
     def run(self):
@@ -183,7 +194,7 @@ class CarlaWorld(Thread, World):
                         )
                     )
 
-            self.apply_control()
+                self.apply_control()
 
         finally:
             self.client.world.synchronous_mode = False
@@ -192,15 +203,17 @@ class CarlaWorld(Thread, World):
 
     def apply_control(self) -> None:
         """Applies the current speed to the car"""
-        control = self.car.control
+        control = self.local_planner.run_step()
+        logger.info(f"Previous control: {self.car.control}")
+        control = control.clone()
         control.throttle = 0
         control.brake = 0
-        control.steer = 0
         speed = self._speed
         if speed < 0.5:
             control.brake = 1 - (2 * speed)
         else:
-            control.throttle = 2 * speed
+            control.throttle = 2 * (speed - 0.5)
+        logger.info(f"Control we provide: {control}")
         self.car.control = control
 
     def stop(self) -> None:
@@ -211,10 +224,31 @@ class CarlaWorld(Thread, World):
         self.paused = True
         # Ensure world is not being ticked anymore
         self.await_next_tick()
-        self.car.transform = random.choice(self.world.map.spawn_points)
+        new_location = random.choice(self.world.map.spawn_points)
+        self.car.transform = new_location
+
+        new_route = self.generate_new_route(
+            CarlaLocation.from_native(new_location.location),
+        )
+        self.local_planner.set_global_plan(new_route)
+        self.car.transform = self.local_planner.get_plan().popleft()[0].transform
         self.car.velocity = CarlaVector3D.fromxyz(
             0,
             0,
             0,
         )
         self.paused = False
+
+    def generate_new_route(
+        self, start: CarlaLocation
+    ) -> List[Tuple[CarlaWaypoint, RoadOption]]:
+        route = None
+        while route is None:
+            try:
+                target = CarlaLocation.from_native(
+                    random.choice(self.world.map.spawn_points).location
+                )
+                route = self.global_planner.trace_route(start, target)
+            except Exception:
+                logger.warning("Failed to find route, trying again")
+        return route

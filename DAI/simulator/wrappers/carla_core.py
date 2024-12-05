@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Generic, List, Optional, TypeVar
+from typing import Callable, Generic, List, Optional, Tuple, TypeVar
 
 import carla
 import numpy as np
@@ -10,7 +10,7 @@ from loguru import logger
 
 from .carla_blueprint import CarlaBlueprint, CarlaBlueprintLibrary
 from .carla_color_converter import CarlaColorConverter
-from .carla_utils import CarlaLocation, CarlaVector3D
+from .carla_utils import CarlaLocation, CarlaVector3D, CarlaWaypoint
 
 
 class CarlaWorld:
@@ -90,6 +90,7 @@ class CarlaWorld:
     @property
     def map(self) -> CarlaMap:
         if self._map is None:
+            logger.info("Fetching map from server")
             self._map = CarlaMap(self.world.get_map())
         return self._map
 
@@ -144,8 +145,18 @@ class CarlaMap:
         self.map = map
 
     @property
-    def spawn_points(self) -> list[carla.Transform]:
+    def spawn_points(self) -> List[carla.Transform]:
         return self.map.get_spawn_points()
+
+    def get_waypoint(self, location: CarlaLocation) -> CarlaWaypoint:
+        """Gets a waypoint at location which will continue on to the nearest road"""
+        return CarlaWaypoint(self.map.get_waypoint(location.native))
+
+    def get_topology(self) -> List[Tuple[CarlaWaypoint, CarlaWaypoint]]:
+        return [
+            (CarlaWaypoint(begin), CarlaWaypoint(end))
+            for begin, end in self.map.get_topology()
+        ]
 
 
 class CarlaActor:
@@ -203,6 +214,9 @@ class CarlaActor:
     @property
     def state(self):
         return self.actor.actor_state
+
+    def disable_physics(self, shoul_disable: bool = True) -> None:
+        self.actor.set_simulate_physics(not shoul_disable)
 
 
 class CarlaWalkerAI(CarlaActor):
@@ -324,6 +338,21 @@ class CarlaVehicleControl:
         assert isinstance(control, carla.VehicleControl)
         self.control = control
 
+    def clone(self) -> CarlaVehicleControl:
+        new_control = CarlaVehicleControl.new()
+        new_control.throttle = self.throttle
+        new_control.steer = self.steer
+        new_control.brake = self.brake
+        new_control.hand_brake = self.hand_brake
+        new_control.reverse = self.reverse
+        new_control.manual_gear_shift = self.manual_gear_shift
+        new_control.gear = self.gear
+        return new_control
+
+    @staticmethod
+    def new() -> CarlaVehicleControl:
+        return CarlaVehicleControl(carla.VehicleControl())
+
     @property
     def throttle(self) -> float:
         return self.control.throttle
@@ -347,6 +376,44 @@ class CarlaVehicleControl:
     @brake.setter
     def brake(self, value: float) -> None:
         self.control.brake = value
+
+    @property
+    def hand_brake(self) -> bool:
+        return self.control.hand_brake
+
+    @hand_brake.setter
+    def hand_brake(self, value: bool) -> None:
+        self.control.hand_brake = value
+
+    @property
+    def reverse(self) -> bool:
+        return self.control.reverse
+
+    @reverse.setter
+    def reverse(self, value: bool) -> None:
+        self.control.reverse = value
+
+    @property
+    def manual_gear_shift(self) -> bool:
+        return self.control.manual_gear_shift
+
+    @manual_gear_shift.setter
+    def manual_gear_shift(self, value: bool) -> None:
+        self.control.manual_gear_shift = value
+
+    @property
+    def gear(self) -> int:
+        return self.control.gear
+
+    @gear.setter
+    def gear(self, value: int) -> None:
+        self.control.gear = value
+
+    def __str__(self) -> str:
+        return f"throttle: {self.throttle}, steer: {self.steer}, brake: {self.brake}, hand_brake: {self.hand_brake}, reverse: {self.reverse}, manual: {self.manual_gear_shift}, gear: {self.gear},"
+
+    def __repr__(self) -> str:
+        return str(self)
 
 
 T = TypeVar("T")
