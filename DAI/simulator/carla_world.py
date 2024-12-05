@@ -207,7 +207,7 @@ class CarlaWorld(Thread, World):
     def apply_control(self) -> None:
         """Applies the current speed to the car"""
         control = self.local_planner.run_step()
-        logger.info(f"Previous control: {self.car.control}")
+        #logger.info(f"Previous control: {self.car.control}")
         control = control.clone()
         control.throttle = 0
         control.brake = 0
@@ -216,7 +216,7 @@ class CarlaWorld(Thread, World):
             control.brake = 1 - (2 * speed)
         else:
             control.throttle = 2 * (speed - 0.5)
-        logger.info(f"Control we provide: {control}")
+        #logger.info(f"Control we provide: {control}")
         self.car.control = control
 
     def stop(self) -> None:
@@ -240,6 +240,7 @@ class CarlaWorld(Thread, World):
             0,
             0,
         )
+        self.collision = None
         self.paused = False
 
     def generate_new_route(

@@ -11,6 +11,7 @@ from DAI.simulator.extract import get_objects, get_current_max_speed, get_curren
 from DAI.simulator.wrappers import CarlaTrafficLightState
 from DAI.interfaces import Object, ObjectType
 from .carla_setup import setup_carla
+import wandb
 
 class CarlaEnv(gym.Env):
   """Custom Gym Environment for RL with variable-length object detections."""
@@ -78,6 +79,8 @@ class CarlaEnv(gym.Env):
       action = action[0]
       #logger.info(f"Executing step with action {action}")
       self.world.set_speed(action)
+
+      wandb.log({"action": action})
       
       # TO DO: wait for execution action in Carla ?
       
@@ -265,10 +268,23 @@ class CarlaEnv(gym.Env):
         else:               # No vehicle in angle-of-attack
           
           """Driving too slow"""
+          print("spotted car")
           speed_margin = 0.1*speed_limit
-          if speed_limit-speed_margin > current_speed:
-            slow_speed_reward = -0.1 * (current_speed/speed_limit)
-              
+          if speed_limit-speed_margin > current_speed and current_speed >= 0.1:
+            slow_speed_reward = -0.01 * (speed_limit/current_speed)
+          elif current_speed < 0.1:
+            slow_speed_reward = -2
+
+
+    # to deal with speedlimit if no objects have been detected        
+    if len(filtered_objects) == 0:        
+      """Driving too slow"""
+      speed_margin = 0.1*speed_limit
+      if speed_limit-speed_margin > current_speed and current_speed >= 0.1:
+        slow_speed_reward = -0.01 * (speed_limit/current_speed)
+      elif current_speed < 0.1:
+        slow_speed_reward = -2
+      
     """Following speed limit"""
     if speed_limit < current_speed:
       fast_speed_reward = -0.1 * (current_speed/speed_limit)
@@ -294,9 +310,13 @@ class CarlaEnv(gym.Env):
     
     #reward = safe_distance_reward + slow_speed_reward + fast_speed_reward + stop_reward + crash_reward + pedestrian_reward
     reward = slow_speed_reward + fast_speed_reward + crash_reward
-
+    wandb.log({"slow_speed_reward": slow_speed_reward,
+               "fast_speed_reward": fast_speed_reward,
+               "crash_reward": crash_reward,
+               "reward": reward,
+               "speed_limit": speed_limit,
+               "current_speed": current_speed})
     return reward
-
 
   def _terminated(self):
     """

@@ -1,3 +1,4 @@
+import wandb
 import sys
 import numpy as np
 import gymnasium as gym
@@ -29,13 +30,17 @@ def main():
     logger.info("Starting setup...")
     warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-    # Environment configuration
-    config = {
+    # Initialize wandb
+    wandb.init(project="carla_sac", config={
         "perfect": True,
         "world_max_speed": 100,
         "max_objects": 30,
         "relevant_distance": 25,
-    }
+        "total_timesteps": 100000,
+    })
+    
+    # Environment configuration
+    config = wandb.config
 
     # Create the custom environment
     base_env = CarlaEnv(config)  # Create the base environment
@@ -52,11 +57,12 @@ def main():
     model = SAC("MlpPolicy", env, verbose=1)
 
     # Training Loop
-    total_timesteps = 100000  # Define the number of timesteps to train the agent
+    total_timesteps = config.total_timesteps  # Use the value from wandb config
     model.learn(total_timesteps=total_timesteps, progress_bar=True)
 
     # Save the trained model
     model.save("sac_custom_env_model")
+    wandb.save("sac_custom_env_model.zip")
 
     obs = env.reset()
     for _ in range(10):
@@ -65,6 +71,9 @@ def main():
         env.render()
         if done:
             obs = env.reset()
+    
+    # Finish the wandb run
+    wandb.finish()
 
 if __name__ == "__main__":
     main()
