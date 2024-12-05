@@ -166,3 +166,4 @@ bdd100k/
 data/
 myenv/
 wandb/
+sac_carla_env/
