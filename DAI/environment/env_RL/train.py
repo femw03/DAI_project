@@ -21,7 +21,9 @@ from .carla_setup import setup_carla
 
 def carla_env_creator(env_config):
     """Environment creator for CarlaEnv."""
-    return CarlaEnv(env_config)
+    base_env = CarlaEnv(env_config)
+    # Wrap with TimeLimit to set max_episode_steps
+    return TimeLimit(base_env, max_episode_steps=10)
 
 def main():
     logger.info("Starting setup...")
@@ -36,20 +38,22 @@ def main():
     }
 
     # Create the custom environment
-    env = CarlaEnv(config)
+    base_env = CarlaEnv(config)  # Create the base environment
+    env = TimeLimit(base_env, max_episode_steps=1000)  # Wrap with TimeLimit
 
-    # Initialize the SAC agent
-    model = SAC("MlpPolicy", env, verbose=1)
-
+    # Access the base environment to wait for Carla initialization
     logger.info("Waiting for Carla world to initialize...")
-    while env.world.car is None:
+    while base_env.world.car is None:  # Use base_env here
         pass  # Keep looping until env.world is not None
     
     logger.info("Carla world initialized!")
 
+    # Initialize the SAC agent
+    model = SAC("MlpPolicy", env, verbose=1)
+
     # Training Loop
     total_timesteps = 100000  # Define the number of timesteps to train the agent
-    model.learn(total_timesteps=total_timesteps)
+    model.learn(total_timesteps=total_timesteps, progress_bar=True)
 
     # Save the trained model
     model.save("sac_custom_env_model")

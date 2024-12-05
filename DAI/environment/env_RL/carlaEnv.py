@@ -48,7 +48,7 @@ class CarlaEnv(gym.Env):
       """
       print("resetting")
       # Reset Carla world
-      #self.world.reset()
+      self.world.reset()
 
       # Set the random seed if provided
       if seed is not None:
@@ -73,10 +73,10 @@ class CarlaEnv(gym.Env):
       """
       Apply an action and return the new observation, reward, and done.
       """
-      print("stepping")
+      #print("stepping")
       # Apply action
       action = action[0]
-      logger.info(f"Executing step with action {action}")
+      #logger.info(f"Executing step with action {action}")
       self.world.set_speed(action)
       
       # TO DO: wait for execution action in Carla ?
@@ -133,11 +133,11 @@ class CarlaEnv(gym.Env):
       padding = [Object(type=random.randint(0, 1), confidence=0.0, distance=0.0, angle=0.0) for _ in range(padding_needed)] 
       filtered_objects.extend(padding)
 
-    logger.info(f"Object list: {object_list}")
-    logger.info(f"Filtered objects observation: {filtered_objects}")
-    logger.info(f"Speed limit: {speed_limit}")
-    logger.info(f"Current speed: {current_speed}")
-    logger.info(f"Stop flag: {stop_flag}")
+    #logger.info(f"Object list: {object_list}")
+    #logger.info(f"Filtered objects observation: {filtered_objects}")
+    #logger.info(f"Speed limit: {speed_limit}")
+    #logger.info(f"Current speed: {current_speed}")
+    #logger.info(f"Stop flag: {stop_flag}")
 
     # Static features (speed_limit, current_speed)
     static_features = np.array([speed_limit, current_speed], dtype=np.float32)
@@ -151,7 +151,7 @@ class CarlaEnv(gym.Env):
     # Flatten the entire observation into a single vector
     observation = np.concatenate([static_features, task_features, object_features.flatten()])
 
-    logger.info(f"Observation: {observation}")
+    #logger.info(f"Observation: {observation}")
 
     return observation
 
