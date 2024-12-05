@@ -292,7 +292,8 @@ class CarlaEnv(gym.Env):
     else:
       stop_reward = 0"""
     
-    reward = safe_distance_reward + slow_speed_reward + fast_speed_reward + stop_reward + crash_reward + pedestrian_reward
+    #reward = safe_distance_reward + slow_speed_reward + fast_speed_reward + stop_reward + crash_reward + pedestrian_reward
+    reward = slow_speed_reward + fast_speed_reward + crash_reward
 
     return reward
 
