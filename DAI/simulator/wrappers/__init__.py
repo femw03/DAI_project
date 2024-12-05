@@ -22,6 +22,8 @@ from .carla_core import (  # noqa: F401
 )
 from .carla_utils import (  # noqa: F401
     CarlaCommand,
+    CarlaLocation,
+    CarlaVector3D,
     DestroyActorCommand,
     SetAutoPiloteCommand,
     SpawnActorCommand,

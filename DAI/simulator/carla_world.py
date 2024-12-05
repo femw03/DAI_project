@@ -20,6 +20,7 @@ from .wrappers import (
     CarlaDepthBlueprint,
     CarlaImage,
     CarlaRGBBlueprint,
+    CarlaVector3D,
     CarlaVehicle,
 )
 
@@ -51,12 +52,15 @@ class CarlaWorld(Thread, World):
         self.port = port
         self.number_of_walkers = walkers
         self.number_of_cars = cars
+        self.paused = False
+
+        self.client = CarlaClient(port=port)
+        self.world = self.client.world
 
         self.rgb_image: Optional[np.ndarray] = None
         self.depth_image: Optional[np.ndarray] = None
         self.segm_image: Optional[np.ndarray] = None
         self.collision: Optional[CarlaCollisionEvent] = None
-        self.client = CarlaClient(port=port)
         self.car: Optional[CarlaVehicle] = None
         self.all_actors: List[CarlaActor] = []
         self.cars: List[CarlaActor] = []
@@ -136,12 +140,10 @@ class CarlaWorld(Thread, World):
     def setup(self):
         """Spawns the car and external actors"""
         logger.info("Setup Carla world")
-        world = self.client.world
-        world.delta_seconds = 1 / self.tickrate
-        world.synchronous_mode = True
+        self.world.delta_seconds = 1 / self.tickrate
+        self.world.synchronous_mode = True
         tm = self.client.get_traffic_manager()
         tm.synchronous_mode = True
-
         self.setup_car()
 
         # debugging => no vehicles, no walkers!!!
@@ -159,12 +161,15 @@ class CarlaWorld(Thread, World):
             framecount = 0
             clock = Clock()
             while self.loop_running:
-                #logger.debug(f"frame: {framecount}   ")
+                self._notify_tick_listeners()
+                if self.paused:  # Don't tick the world while paused
+                    clock.tick()
+                    continue
+                logger.debug(f"frame: {framecount}   ")
                 clock.tick(self.tickrate)
                 # self.collision = None # Reset the collision state smartly?
                 self.client.world.tick()
                 now = datetime.now()
-                self._notify_tick_listeners()
 
                 if self.rgb_image is not None and self.depth_image is not None:
                     #logger.debug("Sending an observation")
@@ -193,6 +198,7 @@ class CarlaWorld(Thread, World):
         control = self.car.control
         control.throttle = 0
         control.brake = 0
+        control.steer = 0
         speed = self._speed
         if speed < 0.5:
             control.brake = 1 - (2 * speed)
@@ -203,3 +209,15 @@ class CarlaWorld(Thread, World):
     def stop(self) -> None:
         logger.info("Stopping simulation")
         self.loop_running = False
+
+    def reset(self) -> None:
+        self.paused = True
+        # Ensure world is not being ticked anymore
+        self.await_next_tick()
+        self.car.transform = random.choice(self.world.map.spawn_points)
+        self.car.velocity = CarlaVector3D.fromxyz(
+            0,
+            0,
+            0,
+        )
+        self.paused = False

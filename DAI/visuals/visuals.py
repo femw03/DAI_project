@@ -10,7 +10,7 @@ from typing import Callable, List, Optional, Tuple
 import numpy as np
 import pygame
 from loguru import logger
-from pygame.locals import K_ESCAPE, K_RIGHT, K_i
+from pygame.locals import K_ESCAPE, K_RIGHT, K_i, K_r
 
 from ..interfaces import CarlaFeatures
 from ..platform import list_tiger_vnc_displays
@@ -54,6 +54,9 @@ class Visuals(Thread):
         """FPS of the window"""
         self.on_quit: Callable[[], None] = None
         """Is called when the user wants to quit"""
+
+        self.on_reset: Callable[[], None] = None
+        """Is called when the user wants to reset the simulation"""
 
         self.rgb_image: np.ndarray = np.empty(
             (self.height, self.width, 3), dtype=np.uint8
@@ -142,3 +145,6 @@ class Visuals(Thread):
             logger.info(
                 f"{'enabling' if self.display_object_information else 'disabling'} detected object information"
             )
+        if key == K_r:
+            logger.info("Resetting simulation")
+            self.on_reset()
