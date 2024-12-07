@@ -54,25 +54,26 @@ def main():
     
     logger.info("Carla world initialized!")
 
+    model = SAC("MlpPolicy", env, verbose=1)
     # Load the previously trained model
-    model = SAC.load("sac_OnlySpeedLimit_correctTerminate", env=env, verbose=1)
-    print("loaded: ", model)
+    #model = SAC.load("sac_OnlySpeedLimit_correctTerminate", env=env, verbose=1)
+    #print("loaded: ", model)
 
     # Define save frequency (e.g., every 10,000 timesteps)
     save_frequency = 25000
-    total_timesteps = 400000  # Total timesteps to train
+    total_timesteps = 100000  # Total timesteps to train
     n_steps = save_frequency  # Steps per save
 
     for step in range(0, total_timesteps, n_steps):
         model.learn(total_timesteps=n_steps, reset_num_timesteps=False, progress_bar=True, callback=WandbCallback())
         # Save the model after every `save_frequency` timesteps
-        model.save(f"sac_KeepingDistance_step_{step + n_steps}")
-        wandb.save(f"sac_KeepingDistance_step_{step + n_steps}.zip")
+        model.save(f"sac_OnlySpeed_step_{step + n_steps}")
+        wandb.save(f"sac_OnlySpeed_step_{step + n_steps}.zip")
         print(f"Model saved at step: {step + n_steps}")
 
     # Save the final model
-    model.save("sac_KeepingDistance_final")
-    wandb.save("sac_KeepingDistance_final.zip")
+    model.save("sac_OnlySpeed_final")
+    wandb.save("sac_OnlySpeed_final.zip")
 
     # Finish the training wandb run 
     wandb.finish() 

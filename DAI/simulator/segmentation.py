@@ -11,7 +11,7 @@ import numpy as np
 from ..interfaces import BoundingBox, Object, ObjectType
 from ..visuals.visual_utils import add_object_information
 
-mappings = [
+"""mappings = [
     (ObjectType.CAR, np.array([142, 0, 0])),
     (ObjectType.PEDESTRIAN, np.array([60, 20, 220])),
     (ObjectType.TRAFFIC_LIGHT, np.array([30, 170, 250])),
@@ -22,8 +22,19 @@ mappings = [
     (ObjectType.TRUCK, np.array([70, 0, 0])),
     (ObjectType.TRAIN, np.array([100, 80, 0])),
     (ObjectType.RIDER, np.array([0, 0, 255])),
+]"""
+mappings = [
+    (ObjectType.CAR, np.array([0, 0, 142])),
+    (ObjectType.PEDESTRIAN, np.array([220, 20, 60])),
+    (ObjectType.TRAFFIC_LIGHT, np.array([250, 170, 30])),
+    (ObjectType.TRAFFIC_SIGN, np.array([220, 220, 0])),
+    (ObjectType.BUS, np.array([0, 60, 100])),
+    (ObjectType.MOTOR_CYCLE, np.array([0, 0, 230])),
+    (ObjectType.BICYLE, np.array([119, 11, 32])),
+    (ObjectType.TRUCK, np.array([0, 0, 70])),
+    (ObjectType.TRAIN, np.array([0, 80, 100])),
+    (ObjectType.RIDER, np.array([255, 0, 0])),
 ]
-
 
 def extract_objects(
     segmentation_image: np.ndarray,

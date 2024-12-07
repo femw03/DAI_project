@@ -233,7 +233,7 @@ class CarlaEnv(gym.Env):
       self.collisionFlag = True
     
     for object in filtered_objects:
-      #print("found object!!!")
+      #print("saw object!!!", object)
       if object.type == ObjectType.PEDESTRIAN:                # Pedestrians
         #print("saw pedestrian")
         if abs(object.angle) < np.radians(45) :           # angle of attack = +-45°
@@ -253,7 +253,7 @@ class CarlaEnv(gym.Env):
               pedestrian_reward = -0.1*static_features[1]       # Penalty for moving when a stop is required"""
       
       else:
-        if abs(object.angle) < np.radians(20) and object.distance != 0:           # angle of attack = +-20°
+        if abs(object.angle) <= np.radians(2) and object.distance != 0:           # angle of attack = +-5°
           #print("car infront!!! distance: ", object.distance)
           """Safe distance"""
           if current_speed > 1:
@@ -319,7 +319,7 @@ class CarlaEnv(gym.Env):
       stop_reward = 0"""
     
     #reward = safe_distance_reward + slow_speed_reward + fast_speed_reward + stop_reward + crash_reward + pedestrian_reward
-    reward = slow_speed_reward + fast_speed_reward + crash_reward + safe_distance_reward
+    reward = slow_speed_reward + fast_speed_reward + crash_reward# + safe_distance_reward
     wandb.log({"slow_speed_reward": slow_speed_reward,
                "fast_speed_reward": fast_speed_reward,
                "crash_reward": crash_reward,
