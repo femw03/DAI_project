@@ -58,13 +58,21 @@ def main():
     model = SAC.load("sac_OnlySpeedLimit_correctTerminate", env=env, verbose=1)
     print("loaded: ", model)
 
-    # Continue training the model
-    additional_timesteps = 400000  # Set this to the number of additional timesteps you want to train for
-    model.learn(total_timesteps=additional_timesteps, progress_bar=True, callback=WandbCallback())
+    # Define save frequency (e.g., every 10,000 timesteps)
+    save_frequency = 25000
+    total_timesteps = 400000  # Total timesteps to train
+    n_steps = save_frequency  # Steps per save
 
-    # Save the updated model
-    model.save("sac_KeepingDistance")
-    wandb.save("sac_KeepingDistance.zip")
+    for step in range(0, total_timesteps, n_steps):
+        model.learn(total_timesteps=n_steps, reset_num_timesteps=False, progress_bar=True, callback=WandbCallback())
+        # Save the model after every `save_frequency` timesteps
+        model.save(f"sac_KeepingDistance_step_{step + n_steps}")
+        wandb.save(f"sac_KeepingDistance_step_{step + n_steps}.zip")
+        print(f"Model saved at step: {step + n_steps}")
+
+    # Save the final model
+    model.save("sac_KeepingDistance_final")
+    wandb.save("sac_KeepingDistance_final.zip")
 
     # Finish the training wandb run 
     wandb.finish() 
@@ -73,7 +81,7 @@ def main():
 
     obs, _ = env.reset()  # Adjusting for SB3 VecEnv API
     i = 0
-    for _ in range(100):
+    for _ in range(10000):
         i += 1
         action, _states = model.predict(obs)
         obs, rewards, terminated, truncated, infos = env.step(action)
@@ -81,7 +89,7 @@ def main():
         #env.render()
         if terminated or truncated:
             obs, _ = env.reset()  # Adjusting for SB3 VecEnv API
-        print("eval percentage: ", f"{i}/100 ", 100*i/100, "%")
+        print("eval percentage: ", f"{i}/10000 ", 100*i/10000, "%")
     # Finish the wandb run
     wandb.finish()
 
