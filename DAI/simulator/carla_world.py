@@ -45,7 +45,7 @@ class CarlaWorld(Thread, World):
         view_height=1080 // 2,
         view_FOV=90,
         walkers=50,
-        cars=50,
+        cars=30,
     ) -> None:
         World.__init__(self)
         Thread.__init__(self)

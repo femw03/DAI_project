@@ -167,3 +167,5 @@ data/
 myenv/
 wandb/
 sac_carla_env/
+results/
+sac_OnlySpeedLimit_correctTerminate.zip

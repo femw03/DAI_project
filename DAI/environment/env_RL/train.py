@@ -63,8 +63,8 @@ def main():
     model.learn(total_timesteps=additional_timesteps, progress_bar=True, callback=WandbCallback())
 
     # Save the updated model
-    model.save("sac_KeepingDistance_plus_other_cars")
-    wandb.save("sac_KeepingDistance_plus_other_cars.zip")
+    model.save("sac_KeepingDistance")
+    wandb.save("sac_KeepingDistance.zip")
 
     # Finish the training wandb run 
     wandb.finish() 
