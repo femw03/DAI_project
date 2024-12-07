@@ -19,6 +19,7 @@ class CarlaEnv(gym.Env):
   def __init__(self, config):
     # Configuration for the environment
     logger.info("Startup environment")
+    self.collisionCounter = 0
     self.config = config
     self.perfect = config["perfect"]
     self.world_max_speed = config["world_max_speed"]
@@ -216,7 +217,7 @@ class CarlaEnv(gym.Env):
     for obj in object_list:
       if obj.type not in [ObjectType.TRAFFIC_LIGHT, ObjectType.TRAFFIC_SIGN]:
         filtered_objects.append(obj)
-    
+    #print(object_list)
     """ Reward """
     # Initialize rewards (= 0 -> no influence)
     safe_distance_reward = 0
@@ -228,11 +229,13 @@ class CarlaEnv(gym.Env):
     
     """ Collision """
     if collision:
-      crash_reward = -5      # Harsh penalty for crashing in object
+      crash_reward = -20      # Harsh penalty for crashing in object
       self.collisionFlag = True
     
     for object in filtered_objects:
+      #print("saw object!!!", object)
       if object.type == ObjectType.PEDESTRIAN:                # Pedestrians
+        #print("saw pedestrian")
         if abs(object.angle) < np.radians(45) :           # angle of attack = +-45°
           
           """Stop before pedestrian crossing"""
@@ -250,25 +253,28 @@ class CarlaEnv(gym.Env):
               pedestrian_reward = -0.1*static_features[1]       # Penalty for moving when a stop is required"""
       
       else:
-        if abs(object.angle) < np.radians(20) and object.distance != 0:           # angle of attack = +-20°
-          
+        if abs(object.angle) <= np.radians(2) and object.distance != 0:           # angle of attack = +-5°
+          #print("car infront!!! distance: ", object.distance)
           """Safe distance"""
-          safe_distance = 2 * current_speed       # Approximation of 2 seconds * current_speed
+          if current_speed > 1:
+            safe_distance = 2 * current_speed       # Approximation of 2 seconds * current_speed
+          else: 
+            safe_distance = 2   # to make sure that if he is stationary he won't try to get to zero meters between cars!!
           distance_margin = 0.1*safe_distance
                   
           if object.distance <= 0.5*safe_distance:
             safe_distance_reward = max(-5, -0.5 * ((0.5*safe_distance)/object.distance))          # Large penalty for being too close (unsafe)
-          
+
           elif object.distance < safe_distance+distance_margin and object.distance > safe_distance-distance_margin:
             safe_distance_reward = 1                                    # Bonus for staying within 10% of safe distance
           
           elif current_speed < speed_limit:
             safe_distance_reward = max(-1, -0.1 * (object.distance/safe_distance))     # Smaller penalty for trailing too far behind
-        
+          #print("safe_distance_reward: ", safe_distance_reward)
         else:               # No vehicle in angle-of-attack
           
           """Driving too slow"""
-          print("spotted car")
+          #print("spotted car")
           speed_margin = 0.1*speed_limit
           if speed_limit-speed_margin > current_speed and current_speed >= 0.1:
             slow_speed_reward = -0.01 * (speed_limit/current_speed)
@@ -289,6 +295,10 @@ class CarlaEnv(gym.Env):
     if speed_limit < current_speed:
       fast_speed_reward = -0.1 * (current_speed/speed_limit)
     
+    """Progress""" 
+    progress_reward = 0.1 # small positive reward for every step he didn't colide, we hope he tries to stay alive as long as possible this way
+    if self.world.local_planner.done():
+      progress_reward = 2  # because he finishes early, without crashing!
     # TO DO: remove stop flag when car is stopped
     """Stop line"""
     """if stop_flag:
@@ -309,10 +319,11 @@ class CarlaEnv(gym.Env):
       stop_reward = 0"""
     
     #reward = safe_distance_reward + slow_speed_reward + fast_speed_reward + stop_reward + crash_reward + pedestrian_reward
-    reward = slow_speed_reward + fast_speed_reward + crash_reward
+    reward = slow_speed_reward + fast_speed_reward + crash_reward# + safe_distance_reward
     wandb.log({"slow_speed_reward": slow_speed_reward,
                "fast_speed_reward": fast_speed_reward,
                "crash_reward": crash_reward,
+               "safe_distance_reward": safe_distance_reward,
                "reward": reward,
                "speed_limit": speed_limit,
                "current_speed": current_speed})
@@ -322,5 +333,15 @@ class CarlaEnv(gym.Env):
     """
     Determine if the episode is terminated based on task-specific or static conditions.
     """
-    return self.collisionFlag  
-  
+    if self.world.local_planner.done():
+      done = True
+      print("made it to destination in time without crash!")
+    else:
+      done = False
+    if self.collisionFlag:
+      collision = True
+      self.collisionCounter += 1
+    else:
+      collision = False
+    wandb.log({"number of collisions": self.collisionCounter})
+    return collision or done

@@ -14,6 +14,7 @@ from gymnasium.wrappers import TimeLimit
 from gymnasium.envs.registration import register
 from ray.tune.registry import register_env
 from stable_baselines3 import SAC
+from wandb.integration.sb3 import WandbCallback
 
 # Custom modules
 from ...cv import ComputerVisionModuleImp
@@ -24,7 +25,7 @@ def carla_env_creator(env_config):
     """Environment creator for CarlaEnv."""
     base_env = CarlaEnv(env_config)
     # Wrap with TimeLimit to set max_episode_steps
-    return TimeLimit(base_env, max_episode_steps=10)
+    return TimeLimit(base_env, max_episode_steps=1000)
 
 def main():
     logger.info("Starting setup...")
@@ -53,25 +54,43 @@ def main():
     
     logger.info("Carla world initialized!")
 
-    # Initialize the SAC agent
     model = SAC("MlpPolicy", env, verbose=1)
+    # Load the previously trained model
+    #model = SAC.load("sac_OnlySpeedLimit_correctTerminate", env=env, verbose=1)
+    #print("loaded: ", model)
 
-    # Training Loop
-    total_timesteps = config.total_timesteps  # Use the value from wandb config
-    model.learn(total_timesteps=total_timesteps, progress_bar=True)
+    # Define save frequency (e.g., every 10,000 timesteps)
+    save_frequency = 25000
+    total_timesteps = 100000  # Total timesteps to train
+    n_steps = save_frequency  # Steps per save
 
-    # Save the trained model
-    model.save("sac_custom_env_model")
-    wandb.save("sac_custom_env_model.zip")
+    for step in range(0, total_timesteps, n_steps):
+        model.learn(total_timesteps=n_steps, reset_num_timesteps=False, progress_bar=True, callback=WandbCallback())
+        # Save the model after every `save_frequency` timesteps
+        model.save(f"sac_OnlySpeed_step_{step + n_steps}")
+        wandb.save(f"sac_OnlySpeed_step_{step + n_steps}.zip")
+        print(f"Model saved at step: {step + n_steps}")
 
-    obs = env.reset()
-    for _ in range(10):
+    # Save the final model
+    model.save("sac_OnlySpeed_final")
+    wandb.save("sac_OnlySpeed_final.zip")
+
+    # Finish the training wandb run 
+    wandb.finish() 
+    # Start a new wandb run for evaluation 
+    wandb.init(project="carla_sac_eval", config=config)
+
+    obs, _ = env.reset()  # Adjusting for SB3 VecEnv API
+    i = 0
+    for _ in range(10000):
+        i += 1
         action, _states = model.predict(obs)
-        obs, rewards, done, info = env.step(action)
-        env.render()
-        if done:
-            obs = env.reset()
-    
+        obs, rewards, terminated, truncated, infos = env.step(action)
+        
+        #env.render()
+        if terminated or truncated:
+            obs, _ = env.reset()  # Adjusting for SB3 VecEnv API
+        print("eval percentage: ", f"{i}/10000 ", 100*i/10000, "%")
     # Finish the wandb run
     wandb.finish()
 
