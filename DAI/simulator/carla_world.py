@@ -45,7 +45,7 @@ class CarlaWorld(Thread, World):
         view_height=1080 // 2,
         view_FOV=90,
         walkers=50,
-        cars=10,
+        cars=50,
     ) -> None:
         World.__init__(self)
         Thread.__init__(self)
@@ -131,7 +131,11 @@ class CarlaWorld(Thread, World):
 
         def save_segm_image(image: CarlaImage):
             #logger.debug("received image")
-            self.segm_image = image.numpy_image
+            converted = image.convert(CarlaColorConverter.SEG())
+            numpy_image = converted.numpy_image
+            if numpy_image is None:
+                return
+            self.segm_image = numpy_image
 
         self.segm_camera.listen(save_segm_image)
 
@@ -158,9 +162,10 @@ class CarlaWorld(Thread, World):
         self.setup_car()
 
         # debugging => no vehicles, no walkers!!!
-        #self.cars = spawn_vehicles(self.client, self.number_of_cars)
+        self.cars = spawn_vehicles(self.client, self.number_of_cars)
         #self.pedestrians = spawn_walkers(self.client, self.number_of_walkers)
         #self.all_actors = [*self.cars, *self.pedestrians]
+        self.all_actors = [*self.cars]
         self.loop_running = True
 
     def run(self):

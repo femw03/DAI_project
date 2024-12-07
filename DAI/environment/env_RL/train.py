@@ -14,6 +14,7 @@ from gymnasium.wrappers import TimeLimit
 from gymnasium.envs.registration import register
 from ray.tune.registry import register_env
 from stable_baselines3 import SAC
+from wandb.integration.sb3 import WandbCallback
 
 # Custom modules
 from ...cv import ComputerVisionModuleImp
@@ -24,7 +25,7 @@ def carla_env_creator(env_config):
     """Environment creator for CarlaEnv."""
     base_env = CarlaEnv(env_config)
     # Wrap with TimeLimit to set max_episode_steps
-    return TimeLimit(base_env, max_episode_steps=10)
+    return TimeLimit(base_env, max_episode_steps=1000)
 
 def main():
     logger.info("Starting setup...")
@@ -53,25 +54,34 @@ def main():
     
     logger.info("Carla world initialized!")
 
-    # Initialize the SAC agent
-    model = SAC("MlpPolicy", env, verbose=1)
+    # Load the previously trained model
+    model = SAC.load("sac_OnlySpeedLimit_correctTerminate", env=env, verbose=1)
+    print("loaded: ", model)
 
-    # Training Loop
-    total_timesteps = config.total_timesteps  # Use the value from wandb config
-    model.learn(total_timesteps=total_timesteps, progress_bar=True)
+    # Continue training the model
+    additional_timesteps = 400000  # Set this to the number of additional timesteps you want to train for
+    model.learn(total_timesteps=additional_timesteps, progress_bar=True, callback=WandbCallback())
 
-    # Save the trained model
-    model.save("sac_custom_env_model")
-    wandb.save("sac_custom_env_model.zip")
+    # Save the updated model
+    model.save("sac_KeepingDistance_plus_other_cars")
+    wandb.save("sac_KeepingDistance_plus_other_cars.zip")
 
-    obs = env.reset()
-    for _ in range(10):
+    # Finish the training wandb run 
+    wandb.finish() 
+    # Start a new wandb run for evaluation 
+    wandb.init(project="carla_sac_eval", config=config)
+
+    obs, _ = env.reset()  # Adjusting for SB3 VecEnv API
+    i = 0
+    for _ in range(100):
+        i += 1
         action, _states = model.predict(obs)
-        obs, rewards, done, info = env.step(action)
-        env.render()
-        if done:
-            obs = env.reset()
-    
+        obs, rewards, terminated, truncated, infos = env.step(action)
+        
+        #env.render()
+        if terminated or truncated:
+            obs, _ = env.reset()  # Adjusting for SB3 VecEnv API
+        print("eval percentage: ", f"{i}/100 ", 100*i/100, "%")
     # Finish the wandb run
     wandb.finish()
 

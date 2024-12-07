@@ -11,3 +11,7 @@ class CarlaColorConverter:
     @staticmethod
     def DEPTH() -> CarlaColorConverter:
         return CarlaColorConverter(carla.ColorConverter.Depth)
+    
+    @staticmethod
+    def SEG() -> CarlaColorConverter:
+        return CarlaColorConverter(carla.ColorConverter.CityScapesPalette)
