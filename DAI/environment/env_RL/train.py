@@ -4,9 +4,10 @@ import numpy as np
 import gymnasium as gym
 from loguru import logger
 import warnings
+from collections import deque
 
 logger.remove()
-logger.add(sys.stderr, level="INFO")
+logger.add(sys.stderr, level="ERROR")
 
 import ray
 from ray.rllib.algorithms.sac import SACConfig
@@ -14,18 +15,13 @@ from gymnasium.wrappers import TimeLimit
 from gymnasium.envs.registration import register
 from ray.tune.registry import register_env
 from stable_baselines3 import SAC
+from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
 from wandb.integration.sb3 import WandbCallback
 
 # Custom modules
 from ...cv import ComputerVisionModuleImp
 from .carlaEnv import CarlaEnv
 from .carla_setup import setup_carla
-
-def carla_env_creator(env_config):
-    """Environment creator for CarlaEnv."""
-    base_env = CarlaEnv(env_config)
-    # Wrap with TimeLimit to set max_episode_steps
-    return TimeLimit(base_env, max_episode_steps=1000)
 
 def main():
     logger.info("Starting setup...")
@@ -45,51 +41,58 @@ def main():
 
     # Create the custom environment
     base_env = CarlaEnv(config)  # Create the base environment
-    env = TimeLimit(base_env, max_episode_steps=1000)  # Wrap with TimeLimit
+    time_limited_env = TimeLimit(base_env, max_episode_steps=1000)  # Wrap with TimeLimit
+
+    # Vectorize the environment and apply frame stacking
+    vec_env = DummyVecEnv([lambda: time_limited_env])
+    env = VecFrameStack(vec_env, n_stack=4)
 
     # Access the base environment to wait for Carla initialization
     logger.info("Waiting for Carla world to initialize...")
-    while base_env.world.car is None:  # Use base_env here
+    while base_env.world.car is None:
         pass  # Keep looping until env.world is not None
     
     logger.info("Carla world initialized!")
 
     model = SAC("MlpPolicy", env, verbose=1)
+    print("made model: ", model)
     # Load the previously trained model
-    #model = SAC.load("sac_OnlySpeedLimit_correctTerminate", env=env, verbose=1)
+    #model = SAC.load("sac_CarsOnlyBusy_25000", env=env, verbose=1)
     #print("loaded: ", model)
 
-    # Define save frequency (e.g., every 10,000 timesteps)
+    # Define save frequency
     save_frequency = 25000
     total_timesteps = 100000  # Total timesteps to train
     n_steps = save_frequency  # Steps per save
 
+    # Initialize WandbCallback
+    wandb_callback = WandbCallback(gradient_save_freq=1000, model_save_path=f"{wandb.run.dir}/models/", model_save_freq=25000, verbose=2)
+
     for step in range(0, total_timesteps, n_steps):
-        model.learn(total_timesteps=n_steps, reset_num_timesteps=False, progress_bar=True, callback=WandbCallback())
+        model.learn(total_timesteps=n_steps, reset_num_timesteps=False, progress_bar=True, callback=wandb_callback)
         # Save the model after every `save_frequency` timesteps
-        model.save(f"sac_OnlySpeed_step_{step + n_steps}")
-        wandb.save(f"sac_OnlySpeed_step_{step + n_steps}.zip")
+        model.save(f"/mnt/storage/resultsRL/sac_OnlySpeedFrameStack_{step + n_steps}")
+        wandb.save(f"/mnt/storage/resultsRL/sac_OnlySpeedFrameStack_{step + n_steps}.zip")
         print(f"Model saved at step: {step + n_steps}")
 
     # Save the final model
-    model.save("sac_OnlySpeed_final")
-    wandb.save("sac_OnlySpeed_final.zip")
+    model.save("sac_OnlySpeedFrameStack_final")
+    wandb.save("sac_OnlySpeedFrameStack_final.zip")
 
     # Finish the training wandb run 
     wandb.finish() 
     # Start a new wandb run for evaluation 
     wandb.init(project="carla_sac_eval", config=config)
 
-    obs, _ = env.reset()  # Adjusting for SB3 VecEnv API
+    obs = env.reset()
     i = 0
     for _ in range(10000):
         i += 1
         action, _states = model.predict(obs)
-        obs, rewards, terminated, truncated, infos = env.step(action)
-        
-        #env.render()
-        if terminated or truncated:
-            obs, _ = env.reset()  # Adjusting for SB3 VecEnv API
+        obs, rewards, dones, infos = env.step(action)
+        #print("observation shape: ", obs.shape)
+        if np.any(dones):
+            obs = env.reset()
         print("eval percentage: ", f"{i}/10000 ", 100*i/10000, "%")
     # Finish the wandb run
     wandb.finish()

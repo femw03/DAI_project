@@ -45,7 +45,7 @@ class CarlaWorld(Thread, World):
         view_height=1080 // 2,
         view_FOV=90,
         walkers=50,
-        cars=30,
+        cars=80,
     ) -> None:
         World.__init__(self)
         Thread.__init__(self)
@@ -148,7 +148,8 @@ class CarlaWorld(Thread, World):
         self.collision_detector.listen(save_collision)
 
         self.local_planner = LocalPlanner(self.car, self.world.delta_seconds)
-        route = self.generate_new_route()
+        #route = self.generate_new_route()
+        route = self.generate_new_route(self.car.location)
         self.local_planner.set_global_plan(route)
         self.car.transform = route[0][0].transform
 
@@ -162,10 +163,10 @@ class CarlaWorld(Thread, World):
         self.setup_car()
 
         # debugging => no vehicles, no walkers!!!
-        #self.cars = spawn_vehicles(self.client, self.number_of_cars)
+        self.cars = spawn_vehicles(self.client, self.number_of_cars)
         #self.pedestrians = spawn_walkers(self.client, self.number_of_walkers)
         #self.all_actors = [*self.cars, *self.pedestrians]
-        #self.all_actors = [*self.cars]
+        self.all_actors = [*self.cars]
         self.loop_running = True
 
     def run(self):
@@ -232,7 +233,7 @@ class CarlaWorld(Thread, World):
         self.paused = True
         # Ensure world is not being ticked anymore
         self.await_next_tick()
-        """
+        
         new_location = random.choice(self.world.map.spawn_points)
         self.car.transform = new_location
 
@@ -245,17 +246,39 @@ class CarlaWorld(Thread, World):
             0,
             0,
             0,
-        )"""
-        try:
+        )
+        """try:
             self.car.destroy()
         except Exception as e:
             print(f"An error occurred: {e}")
 
-        self.setup_car()
+        self.setup_car()"""
         self.collision = None
         self.paused = False
+    
+    def start_new_route_from_waypoint(self) -> None:
+        new_route = self.generate_new_route(
+            CarlaLocation.from_native(self.car.location),
+        )
+        self.local_planner.set_global_plan(new_route)
+        self.car.transform = self.local_planner.get_plan().popleft()[0].transform
 
+    
     def generate_new_route(
+        self, start: CarlaLocation
+    ) -> List[Tuple[CarlaWaypoint, RoadOption]]:
+        route = None
+        while route is None:
+            try:
+                target = CarlaLocation.from_native(
+                    random.choice(self.world.map.spawn_points).location
+                )  
+                route = self.global_planner.trace_route(start, target)
+            except Exception:
+                logger.warning("Failed to find route, trying again")
+
+        return route
+    """def generate_new_route(
         self: CarlaLocation
     ) -> List[Tuple[CarlaWaypoint, RoadOption]]:
         route = None
@@ -271,4 +294,6 @@ class CarlaWorld(Thread, World):
             except Exception:
                 logger.warning("Failed to find route, trying again")
 
-        return route
+        return route"""
+
+
