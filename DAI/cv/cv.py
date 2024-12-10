@@ -5,7 +5,7 @@ from ultralytics import YOLO
 
 from ..interfaces import (
     CarlaData,
-    CarlaFeatures,
+    CarlaObservation,
     ComputerVisionModule,
     ObjectType,
 )
@@ -51,7 +51,7 @@ class ComputerVisionModuleImp(ComputerVisionModule):
             accelerator="gpu",
         )
 
-    def process_data(self, data: CarlaData) -> CarlaFeatures:
+    def process_data(self, data: CarlaData) -> CarlaObservation:
         # Use the big net to detect objects generally
         detected = big_object_detection(self.big_net, data)
 
@@ -79,7 +79,7 @@ class ComputerVisionModuleImp(ComputerVisionModule):
             lights = detect_traffic_lights(self.traffic_light_net, data.rgb_image)
             current_light = TrafficLight.should_stop(lights)
 
-        return CarlaFeatures(
+        return CarlaObservation(
             objects=detected,
             current_speed=data.current_speed,
             max_speed=max_speed,
@@ -87,4 +87,5 @@ class ComputerVisionModuleImp(ComputerVisionModule):
             distance_to_pedestrian_crossing=0,  # TODO
             distance_to_stop=0,  # TODO
             pedestrian_crossing_flag=False,  # TODO
+            angle=0,  # TODO
         )

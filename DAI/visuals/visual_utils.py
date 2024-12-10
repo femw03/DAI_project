@@ -1,27 +1,58 @@
 """Contains helper functions to enhance visualisations"""
 
+from __future__ import annotations
+
 import hashlib
 import random
+from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import cv2
 import numpy as np
 
-from ..interfaces import CarlaFeatures, Object
+from ..interfaces import BoundingBox, Object, ObjectType
+
+
+@dataclass
+class ObjectDTO:
+    bounding_box: BoundingBox
+    type: ObjectType
+    angle: float
+    distance: float
+    is_relevant: bool
+    confidence: float
+
+    @staticmethod
+    def from_object(object: Object, is_relevant: bool) -> ObjectDTO:
+        return ObjectDTO(
+            bounding_box=object.boundingBox,
+            angle=object.angle,
+            distance=object.distance,
+            type=object.type,
+            confidence=object.confidence,
+            is_relevant=is_relevant,
+        )
+
 
 FONT_SCALE = 0.5
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 
-def add_object_information(image: np.ndarray, objects: List[Object]) -> np.ndarray:
+def add_object_information(image: np.ndarray, objects: List[ObjectDTO]) -> np.ndarray:
     """Creates a new image with object bounding boxes and object information drawn"""
     image = image.copy()
 
     for object in objects:
-        box = object.boundingBox
+        box = object.bounding_box
         color = enum_to_color(object.type)
-        cv2.rectangle(image, (box.x1, box.y1), (box.x2, box.y2), color=color)
+        cv2.rectangle(
+            image,
+            (box.x1, box.y1),
+            (box.x2, box.y2),
+            color=color,
+            thickness=5 if object.is_relevant else 1,
+        )
         cv2.putText(
             image,
             f"{object.type.name}:{object.confidence:.0%}",
@@ -43,49 +74,29 @@ def add_object_information(image: np.ndarray, objects: List[Object]) -> np.ndarr
     return image
 
 
-def add_static_information(
-    image: np.ndarray, data: CarlaFeatures, time_per_frame: Optional[float] = None
-) -> np.ndarray:
+def add_static_information(image: np.ndarray, data: Dict[str, str]) -> np.ndarray:
     """A the static information of the data in the LHS of the screen"""
     image = image.copy()
-    cv2.rectangle(image, (0, 0), (200, 90), color=(255, 255, 255), thickness=cv2.FILLED)
-    cv2.putText(
+    rectangle_height = len(data) * 15 + 30
+    cv2.rectangle(
         image,
-        f"current speed = {data.current_speed:.2f}",
-        (10, 15),
-        FONT,
-        FONT_SCALE,
-        (0, 0, 0),
-        1,
+        (0, 0),
+        (200, rectangle_height),
+        color=(255, 255, 255),
+        thickness=cv2.FILLED,
     )
-    cv2.putText(
-        image,
-        f"max speed = {data.max_speed}",
-        (10, 30),
-        FONT,
-        FONT_SCALE,
-        (0, 0, 0),
-        1,
-    )
-    cv2.putText(
-        image,
-        f"light = {data.stop_flag}",
-        (10, 45),
-        FONT,
-        FONT_SCALE,
-        (0, 0, 0),
-        1,
-    )
-    if time_per_frame is not None:
+    y_pos = 15
+    for key in data.keys():
         cv2.putText(
             image,
-            f"time = {time_per_frame:.2f}s",
-            (10, 60),
+            f"{key} = {data[key]}",
+            (10, y_pos),
             FONT,
             FONT_SCALE,
             (0, 0, 0),
             1,
         )
+        y_pos += 15
     return image
 
 
