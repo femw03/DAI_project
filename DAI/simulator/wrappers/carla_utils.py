@@ -134,6 +134,17 @@ class CarlaVector3D:
     def __hash__(self) -> int:
         return hash(self.array)
 
+    def angle_to(self, other: CarlaVector3D) -> float:
+        """Calculate the angle (in radians) between this vector and another"""
+        assert isinstance(other, CarlaVector3D)
+        dot_product = np.dot(self.array, other.array)
+        magnitudes = self.magnitude * other.magnitude
+        if magnitudes == 0:
+            return 0
+        # Clip to handle numerical precision issues
+        cos_theta = np.clip(dot_product / magnitudes, -1.0, 1.0)
+        return math.acos(cos_theta)
+
 
 class CarlaWaypoint:
     """https://carla.readthedocs.io/en/latest/python_api/#carlawaypoint"""

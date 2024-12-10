@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
 import numpy as np
+import torch
 from loguru import logger
 
 from .image import Image, Lidar
@@ -64,10 +66,10 @@ class BoundingBox:
 class Object:
     """This is the result of computer vision module box"""
 
-    type: "ObjectType"
+    type: ObjectType
     """The classification type of this object"""
 
-    #boundingBox: "BoundingBox"
+    boundingBox: BoundingBox
     """The bounding box for this object"""
 
     confidence: float
@@ -93,7 +95,7 @@ class CarlaData:
 
 ### Carla Features ###
 @dataclass
-class CarlaFeatures:
+class CarlaObservation:
     """
     This represents the set of features that needs to be extracted from [CarlaData]
     This features are the input for the RL-agent
@@ -101,8 +103,18 @@ class CarlaFeatures:
 
     objects: List[Object]
     current_speed: float
+    angle: float
     max_speed: Optional[float]
     stop_flag: bool
     distance_to_stop: Optional[float]
     pedestrian_crossing_flag: bool
     distance_to_pedestrian_crossing: Optional[float]
+
+
+class AgentFeatures(ABC):
+    """An object that carries the features, only requires the creation of tensors"""
+
+    @abstractmethod
+    def to_tensor(self) -> torch.FloatTensor:
+        """Converts the features into a tensor that represents the input of our model"""
+        pass

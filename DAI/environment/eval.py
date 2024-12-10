@@ -1,42 +1,53 @@
-import sys, os
+import os
+import sys
+
 sys.path.append(os.getcwd())
 
-import numpy as np
+import random
+
 import gymnasium as gym
+import numpy as np
 from gymnasium import spaces
 from loguru import logger
-import random
 
 logger.remove()
 logger.add(sys.stderr, level="INFO")
 
-from DAI.simulator.extract import get_objects, get_current_max_speed, get_current_speed, get_current_affecting_light_state, has_collided
-from DAI.simulator.wrappers import CarlaTrafficLightState
-from DAI.interfaces import Object, ObjectType
-from .carla_setup import setup_carla
-import wandb
-
 import ray
-from ray.rllib.algorithms.sac import SACConfig
-from gymnasium.wrappers import TimeLimit
+import wandb
 from gymnasium.envs.registration import register
+from gymnasium.wrappers import TimeLimit
+from ray.rllib.algorithms.sac import SACConfig
 from ray.tune.registry import register_env
 from stable_baselines3 import SAC
 from wandb.integration.sb3 import WandbCallback
 
+from DAI.interfaces import Object, ObjectType
+from DAI.simulator.extract import (
+    get_current_affecting_light_state,
+    get_current_max_speed,
+    get_current_speed,
+    get_objects,
+    has_collided,
+)
+from DAI.simulator.wrappers import CarlaTrafficLightState
+
 # Custom modules
 from ...cv import ComputerVisionModuleImp
-from .carlaEnv import CarlaEnv
+from .carla_env import CarlaEnv
 from .carla_setup import setup_carla
 
 # Initialize wandb
-wandb.init(project="carla_sac_eval", config={
-    "perfect": True,
-    "world_max_speed": 100,
-    "max_objects": 30,
-    "relevant_distance": 25,
-    "total_timesteps": 400000,
-    })
+wandb.init(
+    project="carla_sac_eval",
+    config={
+        "perfect": True,
+        "world_max_speed": 100,
+        "max_objects": 30,
+        "relevant_distance": 25,
+        "total_timesteps": 400000,
+    },
+)
 
 
 # Environment configuration
@@ -61,10 +72,10 @@ for _ in range(10000):
     i += 1
     action, _states = model.predict(obs)
     obs, rewards, terminated, truncated, infos = env.step(action)
-        
-    #env.render()
+
+    # env.render()
     if terminated or truncated:
         obs, _ = env.reset()  # Adjusting for SB3 VecEnv API
-    print("eval percentage: ", f"{i}/10000 ", 100*i/10000, "%")
+    print("eval percentage: ", f"{i}/10000 ", 100 * i / 10000, "%")
 # Finish the wandb run
 wandb.finish()

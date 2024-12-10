@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from .data_carriers import CarlaData, CarlaFeatures
+from .data_carriers import AgentFeatures, CarlaData, CarlaObservation
 
 
 class ComputerVisionModule(ABC):
@@ -11,7 +11,7 @@ class ComputerVisionModule(ABC):
     """
 
     @abstractmethod
-    def process_data(self, data: CarlaData) -> CarlaFeatures:
+    def process_data(self, data: CarlaData) -> CarlaObservation:
         """From the data from the Carla Simulator return a set of features"""
         pass
 
@@ -20,5 +20,19 @@ class CruiseControlAgent(ABC):
     """A CruiseControlAgent converts CarlaFeatures into a speed"""
 
     @abstractmethod
-    def get_action(self, state: CarlaFeatures) -> float:
+    def get_action(self, state: AgentFeatures) -> float:
         """Calculate the throttle speed (0 - 1) from the given state"""
+
+
+class FeatureExtractor(ABC):
+    """A class that takes features and converts them into the output they require, they may contain an internal state"""
+
+    @abstractmethod
+    def extract(self, observation: CarlaObservation) -> AgentFeatures:
+        """extracts the features from the observation"""
+        pass
+
+    @abstractmethod
+    def reset(self):
+        """reset the internal state"""
+        pass

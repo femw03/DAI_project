@@ -5,16 +5,15 @@ from __future__ import annotations
 import os
 from enum import Enum
 from threading import Thread
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pygame
 from loguru import logger
 from pygame.locals import K_ESCAPE, K_RIGHT, K_i, K_r
 
-from ..interfaces import CarlaFeatures
 from ..platform import list_tiger_vnc_displays
-from .visual_utils import add_object_information, add_static_information
+from .visual_utils import ObjectDTO, add_object_information, add_static_information
 
 
 class VisualType(Enum):
@@ -68,15 +67,15 @@ class Visuals(Thread):
         )
         """The depth image to be blit onto the display if this option is selected"""
 
-        self.detected_features: Optional[CarlaFeatures] = None
+        self.detected_objects: Optional[List[ObjectDTO]] = None
         """The objects that are detected and used to draw bounding boxes"""
+        self.information: Optional[Dict[str, str]] = None
 
         self.running = False
         """Controls if the process is running and can be used to programmatically kill the game"""
 
         self.visuals_type = VisualType.RGB
         self.display_object_information: bool = False
-        self.process_time: Optional[float] = None
 
     def setup(self) -> Tuple[pygame.Surface, pygame.time.Clock]:
         logger.info("Settting up pygame")
@@ -113,13 +112,16 @@ class Visuals(Thread):
         else:
             raise RuntimeError("Invalid image type setting")
 
-        if self.display_object_information and self.detected_features is not None:
-            selected_image = add_object_information(
-                selected_image, self.detected_features.objects
-            )
-            selected_image = add_static_information(
-                selected_image, self.detected_features, self.process_time
-            )
+        if self.display_object_information:
+            if self.detected_objects is not None:
+                selected_image = add_object_information(
+                    selected_image, self.detected_objects
+                )
+            if self.information is not None:
+                selected_image = add_static_information(
+                    selected_image,
+                    self.information,
+                )
 
         display.blit(
             pygame.surfarray.make_surface(selected_image.swapaxes(0, 1)), (0, 0)

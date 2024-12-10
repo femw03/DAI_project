@@ -12,27 +12,29 @@ from loguru import logger
 from ..cv import ComputerVisionModuleImp
 from ..interfaces import (
     CarlaData,
-    CarlaFeatures,
+    CarlaObservation,
     CruiseControlAgent,
 )
 from ..simulator import CarlaWorld
 from ..simulator.extract import (
+    find_vehicle_in_front,
     get_current_affecting_light_state,
     get_current_max_speed,
     get_current_speed,
     get_objects,
+    get_steering_angle,
 )
 from ..utils import timeit
-from ..visuals import Visuals
+from ..visuals import ObjectDTO, Visuals
 
 
 class MockCruiseControlAgent(CruiseControlAgent):
-    def get_action(self, state: CarlaFeatures) -> float:
+    def get_action(self, state: CarlaObservation) -> float:
         return 0.82
 
 
 logger.remove()
-logger.add(sys.stderr, level="ERROR")
+logger.add(sys.stderr, level="INFO")
 
 
 visuals = Visuals(1280, 720, 30)
@@ -71,8 +73,22 @@ while is_running:
         time.sleep(0)  # yield thread
         continue  # refetch data
     features, process_time = timeit(lambda: cv.process_data(data))
-    visuals.detected_features = features
-    visuals.process_time = process_time
+    vehicle_in_front = find_vehicle_in_front(
+        get_steering_angle(world), features.objects
+    )
+    objects = [
+        ObjectDTO.from_object(obj, is_relevant=vehicle_in_front == obj)
+        for obj in features.objects
+    ]
+
+    visuals.detected_objects = objects
+    information = {
+        "current speed": features.current_speed,
+        "max speed": features.max_speed,
+        "stop flag": features.stop_flag,
+        "process time": process_time,
+    }
+    visuals.information = information
     action = agent.get_action(features)
     world.set_speed(action)
     world.await_next_tick()
