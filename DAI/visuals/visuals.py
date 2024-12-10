@@ -133,7 +133,7 @@ class Visuals(Thread):
     def process_key(self, key: int) -> None:
         if key == K_ESCAPE:
             logger.info("Stopping game")
-            self.on_quit()
+            self.on_quit()  # error: TypeError: stop() missing 1 required positional argument: 'world'
             self.running = False
 
         if key == K_RIGHT:

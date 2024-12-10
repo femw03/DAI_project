@@ -32,7 +32,7 @@ class MockCruiseControlAgent(CruiseControlAgent):
 
 
 logger.remove()
-logger.add(sys.stderr, level="INFO")
+logger.add(sys.stderr, level="ERROR")
 
 
 visuals = Visuals(1280, 720, 30)

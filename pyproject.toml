@@ -15,6 +15,10 @@ dependencies = [
     "shapely>=2.0.6",
     "ultralytics>=8.3.29",
     "wandb>=0.18.7",
+    "gymnasium==1.0.0",
+    "ray[rllib]>=2.0.0",
+    "tensorflow_probability",
+    "stable-baselines3>=2.0.0",
 ]
 
 [dependency-groups]

@@ -45,7 +45,7 @@ class CarlaWorld(Thread, World):
         view_height=1080 // 2,
         view_FOV=90,
         walkers=50,
-        cars=10,
+        cars=80,
     ) -> None:
         World.__init__(self)
         Thread.__init__(self)
@@ -75,10 +75,12 @@ class CarlaWorld(Thread, World):
 
     def setup_car(self):
         """Spawns the car and attaches the rgb- and depth camera to it and setups their listeners"""
+        logger.info("Setup car")
+
         world = self.client.world
         car_bp = world.blueprint_library.filter("vehicle.*")[0]
         location = random.choice(world.map.spawn_points)
-        logger.info(f"Spawning {car_bp} at {location}")
+        #logger.info(f"Spawning {car_bp} at {location}")
         self.car = world.spawn_vehicle(car_bp, location)
 
         rgb_camera_bp = CarlaRGBBlueprint.from_blueprint(
@@ -91,7 +93,7 @@ class CarlaWorld(Thread, World):
         self.rgb_camera = self.car.add_camera(rgb_camera_bp)
 
         def save_rgb_image(image: CarlaImage):
-            logger.debug("received image")
+            #logger.debug("received image")
             self.rgb_image = image.numpy_image
 
         self.rgb_camera.listen(save_rgb_image)  # Actor may not lose scope
@@ -111,9 +113,9 @@ class CarlaWorld(Thread, World):
             if numpy_image is None:
                 return
             self.depth_image = numpy_image
-            logger.debug(
-                f"Depth image [{self.depth_image.min(), self.depth_image.max()}] shape: {self.depth_image.shape}"
-            )
+            #logger.debug(
+            #    f"Depth image [{self.depth_image.min(), self.depth_image.max()}] shape: {self.depth_image.shape}"
+            #)
 
         self.depth_camera.listen(save_depth_image)
 
@@ -128,36 +130,43 @@ class CarlaWorld(Thread, World):
         self.segm_camera = self.car.add_camera(segm_camera_bp)
 
         def save_segm_image(image: CarlaImage):
-            logger.debug("received image")
-            self.segm_image = image.numpy_image
+            #logger.debug("received image")
+            converted = image.convert(CarlaColorConverter.SEG())
+            numpy_image = converted.numpy_image
+            if numpy_image is None:
+                return
+            self.segm_image = numpy_image
 
         self.segm_camera.listen(save_segm_image)
 
         self.collision_detector = self.car.add_colision_detector()
 
         def save_collision(event: CarlaCollisionEvent) -> None:
-            logger.warning("Car has collided")
+            #logger.warning("Car has collided")
             self.collision = event
 
         self.collision_detector.listen(save_collision)
 
         self.local_planner = LocalPlanner(self.car, self.world.delta_seconds)
+        #route = self.generate_new_route()
         route = self.generate_new_route(self.car.location)
         self.local_planner.set_global_plan(route)
         self.car.transform = route[0][0].transform
 
     def setup(self):
         """Spawns the car and external actors"""
-
+        logger.info("Setup Carla world")
         self.world.delta_seconds = 1 / self.tickrate
         self.world.synchronous_mode = True
         tm = self.client.get_traffic_manager()
         tm.synchronous_mode = True
         self.setup_car()
 
+        # debugging => no vehicles, no walkers!!!
         self.cars = spawn_vehicles(self.client, self.number_of_cars)
-        self.pedestrians = spawn_walkers(self.client, self.number_of_walkers)
-        self.all_actors = [*self.cars, *self.pedestrians, self.car]
+        #self.pedestrians = spawn_walkers(self.client, self.number_of_walkers)
+        #self.all_actors = [*self.cars, *self.pedestrians]
+        self.all_actors = [*self.cars]
         self.loop_running = True
 
     def run(self):
@@ -180,7 +189,7 @@ class CarlaWorld(Thread, World):
                 now = datetime.now()
 
                 if self.rgb_image is not None and self.depth_image is not None:
-                    logger.debug("Sending an observation")
+                    #logger.debug("Sending an observation")
                     self._set_data(
                         CarlaData(
                             rgb_image=NumpyImage(self.rgb_image, self.view_FOV),
@@ -204,7 +213,7 @@ class CarlaWorld(Thread, World):
     def apply_control(self) -> None:
         """Applies the current speed to the car"""
         control = self.local_planner.run_step()
-        logger.info(f"Previous control: {self.car.control}")
+        #logger.info(f"Previous control: {self.car.control}")
         control = control.clone()
         control.throttle = 0
         control.brake = 0
@@ -213,7 +222,7 @@ class CarlaWorld(Thread, World):
             control.brake = 1 - (2 * speed)
         else:
             control.throttle = 2 * (speed - 0.5)
-        logger.info(f"Control we provide: {control}")
+        #logger.info(f"Control we provide: {control}")
         self.car.control = control
 
     def stop(self) -> None:
@@ -224,6 +233,7 @@ class CarlaWorld(Thread, World):
         self.paused = True
         # Ensure world is not being ticked anymore
         self.await_next_tick()
+        
         new_location = random.choice(self.world.map.spawn_points)
         self.car.transform = new_location
 
@@ -237,8 +247,23 @@ class CarlaWorld(Thread, World):
             0,
             0,
         )
-        self.paused = False
+        """try:
+            self.car.destroy()
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
+        self.setup_car()"""
+        self.collision = None
+        self.paused = False
+    
+    def start_new_route_from_waypoint(self) -> None:
+        new_route = self.generate_new_route(
+            CarlaLocation.from_native(self.car.location),
+        )
+        self.local_planner.set_global_plan(new_route)
+        self.car.transform = self.local_planner.get_plan().popleft()[0].transform
+
+    
     def generate_new_route(
         self, start: CarlaLocation
     ) -> List[Tuple[CarlaWaypoint, RoadOption]]:
@@ -247,8 +272,28 @@ class CarlaWorld(Thread, World):
             try:
                 target = CarlaLocation.from_native(
                     random.choice(self.world.map.spawn_points).location
-                )
+                )  
                 route = self.global_planner.trace_route(start, target)
             except Exception:
                 logger.warning("Failed to find route, trying again")
+
         return route
+    """def generate_new_route(
+        self: CarlaLocation
+    ) -> List[Tuple[CarlaWaypoint, RoadOption]]:
+        route = None
+        while route is None:
+            try:
+                start = CarlaLocation.from_native(
+                    random.choice(self.world.map.spawn_points).location
+                ) 
+                target = CarlaLocation.from_native(
+                    random.choice(self.world.map.spawn_points).location
+                )  
+                route = self.global_planner.trace_route(start, target)
+            except Exception:
+                logger.warning("Failed to find route, trying again")
+
+        return route"""
+
+

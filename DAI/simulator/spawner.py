@@ -65,7 +65,7 @@ def spawn_vehicles(client: CarlaClient, vehicle_target: int = 10) -> List[CarlaV
             vehicle.autopilot = True
             vehicles.append(vehicle)
         except Exception as e:
-            logger.error(f"Failed to spawn car: {e}")
+            logger.warning(f"Failed to spawn car: {e}")
     logger.info(f"succesfully spawned {len(vehicles)} cars")
     logger.debug(f"{vehicles=}")
     return vehicles

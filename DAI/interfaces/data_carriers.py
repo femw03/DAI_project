@@ -67,7 +67,7 @@ class Object:
     type: "ObjectType"
     """The classification type of this object"""
 
-    boundingBox: "BoundingBox"
+    #boundingBox: "BoundingBox"
     """The bounding box for this object"""
 
     confidence: float

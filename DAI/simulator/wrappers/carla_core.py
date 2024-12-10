@@ -44,7 +44,7 @@ class CarlaWorld:
                 attach_to=parent.actor,
             )
         except Exception as e:
-            logger.error(
+            logger.warning(
                 f"The following exception occurred when spawning {blueprint}: {e}"
             )
             raise e
@@ -56,7 +56,7 @@ class CarlaWorld:
         try:
             vehicle = self.world.spawn_actor(blueprint.blueprint, location)
         except Exception as e:
-            logger.error(
+            logger.warning(
                 f"The following exception occurred when spawning {blueprint}: {e}"
             )
             raise e
@@ -72,7 +72,7 @@ class CarlaWorld:
                 )
             vehicle = self.world.spawn_actor(blueprint.blueprint, location)
         except Exception as e:
-            logger.error(
+            logger.warning(
                 f"The following exception occurred when spawning {blueprint}: {e}"
             )
             raise e
@@ -177,7 +177,7 @@ class CarlaActor:
         try:
             return self.actor.destroy()
         except Exception as e:
-            logger.error(f"Error when dispawning {self.actor}: {e}")
+            logger.warning(f"Error when dispawning {self.actor}: {e}")
             return False
 
     def add_colision_detector(self) -> CarlaCollisionSensor:

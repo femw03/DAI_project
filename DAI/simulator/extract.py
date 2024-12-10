@@ -12,7 +12,7 @@ from .carla_world import CarlaWorld
 from .numpy_image import NumpyLidar
 from .segmentation import extract_objects
 from .wrappers import CarlaTrafficLightState
-
+import cv2
 
 def get_objects(world: CarlaWorld) -> List[Object]:
     """
@@ -26,7 +26,6 @@ def get_objects(world: CarlaWorld) -> List[Object]:
             "Tried to get object information from carla but no segmentation image was available"
         )
         return []
-
     result = extract_objects(segmentation_image)
 
     # Step 2 get depth and and add to results
@@ -43,7 +42,8 @@ def get_objects(world: CarlaWorld) -> List[Object]:
     objects = [
         Object(
             type=type,
-            boundingBox=box,
+            #boundingBox=box,
+            confidence=1.0,                 # added
             distance=distance_info.depth,
             angle=calculate_anlge(
                 distance_info.location[0], world.view_FOV, world.view_width
@@ -61,7 +61,7 @@ def get_current_max_speed(world: CarlaWorld) -> float:
 
 def get_current_speed(world: CarlaWorld) -> float:
     """Get the current speed of the vehicle"""
-    return world.car.velocity
+    return world.car.velocity.magnitude * 3.6
 
 
 def get_current_affecting_light_state(world: CarlaWorld) -> CarlaTrafficLightState:
