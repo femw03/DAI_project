@@ -2,11 +2,12 @@ import sys
 import warnings
 
 import numpy as np
-import wandb
 from gymnasium.wrappers import TimeLimit
 from loguru import logger
 from stable_baselines3 import SAC
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
+
+import wandb
 from wandb.integration.sb3 import WandbCallback
 
 # Custom modules
@@ -79,15 +80,15 @@ def main():
             callback=wandb_callback,
         )
         # Save the model after every `save_frequency` timesteps
-        model.save(f"/mnt/storage/resultsRL/sac_OnlySpeedFrameStack_{step + n_steps}")
+        model.save(f"/mnt/storage/resultsRL/sac_NewReward_{step + n_steps}")
         wandb.save(
-            f"/mnt/storage/resultsRL/sac_OnlySpeedFrameStack_{step + n_steps}.zip"
+            f"/mnt/storage/resultsRL/sac_NewReward_{step + n_steps}.zip"
         )
         print(f"Model saved at step: {step + n_steps}")
 
     # Save the final model
-    model.save("sac_OnlySpeedFrameStack_final")
-    wandb.save("sac_OnlySpeedFrameStack_final.zip")
+    model.save("sac_NewReward_final")
+    wandb.save("sac_NewReward_final.zip")
 
     # Finish the training wandb run
     wandb.finish()

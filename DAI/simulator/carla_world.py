@@ -163,10 +163,10 @@ class CarlaWorld(Thread, World):
         self.setup_car()
 
         # debugging => no vehicles, no walkers!!!
-        self.cars = spawn_vehicles(self.client, self.number_of_cars)
+        #self.cars = spawn_vehicles(self.client, self.number_of_cars)
         #self.pedestrians = spawn_walkers(self.client, self.number_of_walkers)
         #self.all_actors = [*self.cars, *self.pedestrians]
-        self.all_actors = [*self.cars]
+        #self.all_actors = [*self.cars]
         self.loop_running = True
 
     def run(self):

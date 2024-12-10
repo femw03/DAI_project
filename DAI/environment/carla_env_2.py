@@ -2,6 +2,7 @@ from typing import Any, Dict
 
 import gymnasium as gym
 import numpy as np
+
 import wandb
 
 from ..simulator import CarlaWorld
@@ -27,7 +28,9 @@ class CarlaEnv2(gym.Env):
         self.perfect = config["perfect"]
         self.world_max_speed = config["world_max_speed"]
         self.visuals = Visuals(fps=30, width=1280, height=720)
-        self.world: CarlaWorld = setup_carla()
+        self.world: CarlaWorld = setup_carla(self.visuals)
+        self.episode_reward = 0
+        self.episode = 0
         self.max_objects = config[
             "max_objects"
         ]  # Maximum number of objects per observation
@@ -57,12 +60,15 @@ class CarlaEnv2(gym.Env):
         Reset the environment to initial state and return initial observation.
         """
         print("resetting")
+        self.episode += 1
+        wandb.log({"episode_reward": self.episode_reward, "episode": self.episode})
+        self.episode_reward = 0
         # Reset Carla world
         self.world.reset()
         self.world.await_next_tick()
         # Set the random seed if provided
         self.feature_extractor.reset()
-        perfect = get_perfect_obs()
+        perfect = get_perfect_obs(world=self.world)
 
         return self.feature_extractor.extract(perfect).to_tensor(), {}
 
@@ -83,7 +89,7 @@ class CarlaEnv2(gym.Env):
 
         # Compute reward
         reward = self._get_reward()
-
+        self.episode_reward += reward
         # Check if the episode is terminated
         if has_completed_navigation(self.world):
             self.world.start_new_route_from_waypoint()
@@ -94,10 +100,11 @@ class CarlaEnv2(gym.Env):
         truncated = False
         info = {}
 
-        observation = get_perfect_obs()  # TODO replace with cv call
+        observation = get_perfect_obs(world=self.world)  # TODO replace with cv call
+
 
         return (
-            self.feature_extractor.extract(observation),
+            self.feature_extractor.extract(observation).to_tensor(),
             reward,
             terminated,
             truncated,
@@ -207,7 +214,8 @@ class CarlaEnv2(gym.Env):
                 "reward": reward,
                 "speed_limit": speed_limit,
                 "current_speed": current_speed,
-                "collision": collision,
+                "collisions": self.collisionCounter,
+                #"vehicle_in_front": vehicle_in_front,
                 # "stop_flag": stop_flag,
             }
         )

@@ -16,8 +16,8 @@ from ..simulator.extract import (
     get_steering_angle,
 )
 
-MAX_SPEED = 120  # km/s
-MAX_DISTANCE = 100  # m
+MAX_SPEED = 120.0  # km/s
+MAX_DISTANCE = 100.0  # m
 
 
 class SimpleFeatures(AgentFeatures):
@@ -30,7 +30,7 @@ class SimpleFeatures(AgentFeatures):
     ):
         super().__init__()
         self.current_speed = current_speed  # km/s
-        self.max_speed = (max_speed,)  # km/s
+        self.max_speed = max_speed  # km/s
         self.is_car_in_front = is_car_in_front
         self.distance_to_car_in_front = distance_to_car_in_front
 
@@ -91,7 +91,7 @@ def get_perfect_obs(world: CarlaWorld) -> CarlaObservation:
         objects=object_list,
         current_speed=current_speed,
         max_speed=speed_limit,
-        angle=get_steering_angle(),
+        angle=get_steering_angle(world),
         distance_to_pedestrian_crossing=None,
         distance_to_stop=None,
         pedestrian_crossing_flag=None,
