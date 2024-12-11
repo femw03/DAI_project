@@ -1,7 +1,10 @@
+from typing import List
+
 import carla
 from loguru import logger
 
 from .carla_core import CarlaVehicle
+from .carla_utils import CarlaLocation
 
 
 class CarlaTrafficManager:
@@ -44,3 +47,7 @@ class CarlaTrafficManager:
         self.traffic_manager.vehicle_percentage_speed_difference(
             vehicle.actor, -1 if should_ignore else 30
         )
+
+    def set_path(self, vehicle: CarlaVehicle, path: List[CarlaLocation]) -> None:
+        path_native = [location.native for location in path]
+        self.traffic_manager.set_path(vehicle.actor, path_native)
