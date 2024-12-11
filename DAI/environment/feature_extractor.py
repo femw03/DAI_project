@@ -12,6 +12,7 @@ from ..simulator.extract import (
     find_vehicle_in_front,
     get_current_max_speed,
     get_current_speed,
+    get_distance_to_leading,
     get_objects,
     get_steering_angle,
 )

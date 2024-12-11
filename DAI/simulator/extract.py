@@ -118,3 +118,6 @@ def find_vehicle_in_front(
 
 def has_completed_navigation(world: CarlaWorld):
     return world.local_planner.done()
+
+def get_distance_to_leading(world: CarlaWorld):
+    return world.car.location.distance_to(world.lead_car.location)

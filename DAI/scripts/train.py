@@ -60,7 +60,7 @@ def main():
     print("loaded: ", model)
 
     # Define save frequency
-    save_frequency = 25000
+    save_frequency = 5000
     total_timesteps = 100000  # Total timesteps to train
     n_steps = save_frequency  # Steps per save
 

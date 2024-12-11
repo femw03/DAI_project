@@ -5,6 +5,7 @@ from datetime import datetime
 from threading import Thread
 from typing import List, Optional, Tuple
 
+import carla
 import numpy as np
 from loguru import logger
 from pygame.time import Clock
@@ -82,9 +83,9 @@ class CarlaWorld(Thread, World):
         car_bps = world.blueprint_library.filter("vehicle.*")
         location = random.choice(world.map.spawn_points)
         # logger.info(f"Spawning {car_bp} at {location}")
-        self.car = world.spawn_vehicle(random.choice(car_bps), location)
+        self.car = world.spawn_vehicle(car_bps[0], location)
         self.lead_car = world.spawn_vehicle(
-            random.choice(car_bps), random.choice(world.map.spawn_points)
+            car_bps[0], random.choice(world.map.spawn_points)
         )
 
         rgb_camera_bp = CarlaRGBBlueprint.from_blueprint(
@@ -175,9 +176,9 @@ class CarlaWorld(Thread, World):
 
         # debugging => no vehicles, no walkers!!!
         self.cars = spawn_vehicles(self.client, self.number_of_cars)
-        # self.pedestrians = spawn_walkers(self.client, self.number_of_walkers)
+        self.pedestrians = spawn_walkers(self.client, self.number_of_walkers)
         # self.all_actors = [*self.cars, *self.pedestrians]
-        self.all_actors = [*self.cars, self.car, self.lead_car]
+        self.all_actors = [*self.cars, *self.pedestrians, self.car, self.lead_car]
         self.loop_running = True
 
     def run(self):
@@ -247,23 +248,7 @@ class CarlaWorld(Thread, World):
 
         new_location = random.choice(self.world.map.spawn_points)
         self.car.transform = new_location
-
-        new_route = self.generate_new_route(
-            CarlaLocation.from_native(new_location.location),
-        )
-        self.local_planner.set_global_plan(new_route)
-        self.car.transform = self.local_planner.get_plan().popleft()[0].transform
-        self.car.velocity = CarlaVector3D.fromxyz(
-            0,
-            0,
-            0,
-        )
-        waypoints = [waypoint for waypoint, _ in new_route]
-        next_wp, index = find_next_wp_from(waypoints)
-        locations = [waypoint.location for waypoint in waypoints[index:]]
-        self.lead_car.transform = next_wp.transform
-        self.lead_car.autopilot = True
-        self.traffic_manager.set_path(self.lead_car, locations)
+        self.setup_routes(new_location)
 
         """try:
             self.car.destroy()
@@ -275,17 +260,7 @@ class CarlaWorld(Thread, World):
         self.paused = False
 
     def start_new_route_from_waypoint(self) -> None:
-        new_route = self.generate_new_route(
-            CarlaLocation.from_native(self.car.location),
-        )
-        self.local_planner.set_global_plan(new_route)
-        self.car.transform = self.local_planner.get_plan().popleft()[0].transform
-        waypoints = [waypoint for waypoint, _ in new_route]
-        next_wp, index = find_next_wp_from(waypoints)
-        locations = [waypoint.location for waypoint in waypoints[index:]]
-        self.lead_car.transform = next_wp.transform
-        self.lead_car.autopilot = True
-        self.traffic_manager.set_path(self.lead_car, locations)
+        self.setup_routes(self.car.transform)
 
     def generate_new_route(
         self, start: CarlaLocation
@@ -319,3 +294,28 @@ class CarlaWorld(Thread, World):
                 logger.warning("Failed to find route, trying again")
 
         return route"""
+    def setup_routes(self, start: carla.Transform) -> None:
+
+
+        new_route = self.generate_new_route(
+            CarlaLocation.from_native(start.location),
+        )
+        waypoints = [waypoint for waypoint, _ in new_route]
+        next_wp_result = find_next_wp_from(waypoints)
+        while next_wp_result is None:
+            new_route = self.generate_new_route(
+            CarlaLocation.from_native(start.location),
+            )
+            next_wp_result = find_next_wp_from(waypoints)
+        next_wp, index = next_wp_result
+        locations = [waypoint.location for waypoint in waypoints[index:]]
+        self.lead_car.transform = next_wp.transform
+        self.lead_car.autopilot = True
+        self.traffic_manager.set_path(self.lead_car, locations)    
+        self.local_planner.set_global_plan(new_route)
+        self.car.transform = self.local_planner.get_plan().popleft()[0].transform
+        self.car.velocity = CarlaVector3D.fromxyz(
+            0,
+            0,
+            0,
+        )

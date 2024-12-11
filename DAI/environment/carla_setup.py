@@ -33,7 +33,7 @@ def setup_carla(visuals: Visuals) -> CarlaWorld:
     Returns the CarlaWorld instance.
     """
     # Initialize CarlaWorld and link to visuals
-    world = CarlaWorld(view_height=visuals.height, view_width=visuals.width)
+    world = CarlaWorld(view_height=visuals.height, view_width=visuals.width, walkers=0, cars=0)
     world.add_listener(lambda data: set_view_data(data, visuals))
 
     # Visuals will call stop() when they are done

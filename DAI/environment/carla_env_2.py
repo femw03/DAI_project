@@ -10,6 +10,7 @@ from ..simulator.extract import (
     find_vehicle_in_front,
     get_current_max_speed,
     get_current_speed,
+    get_distance_to_leading,
     get_objects,
     get_steering_angle,
     has_collided,
@@ -93,18 +94,25 @@ class CarlaEnv2(gym.Env):
         self.episode_reward += reward
         # Check if the episode is terminated
         if has_completed_navigation(self.world):
+            print("completed nav without crash, finding new route!")
             self.world.start_new_route_from_waypoint()
 
-        terminated = has_collided(self.world)
-        if terminated:
+        crash = has_collided(self.world) 
+        if crash:
             self.collisionCounter += 1
+        dis = get_distance_to_leading(self.world) > 50
+        terminated = crash or dis
         truncated = False
         info = {}
 
         observation = get_perfect_obs(world=self.world)  # TODO replace with cv call
 
+        features = self.feature_extractor.extract(observation)
+        # Let's cheat!!!
+        features.is_car_in_front = True
+        features.distance_to_car_in_front = get_distance_to_leading(self.world)
         return (
-            self.feature_extractor.extract(observation).to_tensor(),
+            features.to_tensor(),
             reward,
             terminated,
             truncated,
@@ -189,7 +197,7 @@ class CarlaEnv2(gym.Env):
                     current_speed / 3.6
                 )  # Safe distance = 2 seconds of travel in m/s
             else:
-                safe_distance = 1
+                safe_distance = 2
 
             lower_bound = safe_distance - safe_distance_margin
             upper_bound = safe_distance + safe_distance_margin
@@ -224,12 +232,12 @@ class CarlaEnv2(gym.Env):
             }
         # Logging for debugging and analysis
         wandb.log(information)
-        self.visuals.information = information
+        #self.visuals.information = information
 
-        objects = [
+        """objects = [
         ObjectDTO.from_object(obj, is_relevant=vehicle_in_front == obj)
             for obj in object_list
         ]
-        self.visuals.detected_objects = objects
+        self.visuals.detected_objects = objects"""
 
         return reward
