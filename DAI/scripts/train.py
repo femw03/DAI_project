@@ -53,11 +53,11 @@ def main():
 
     logger.info("Carla world initialized!")
 
-    model = SAC("MlpPolicy", env, verbose=1)
-    print("made model: ", model)
+    #model = SAC("MlpPolicy", env, verbose=1)
+    #print("made model: ", model)
     # Load the previously trained model
-    # model = SAC.load("sac_CarsOnlyBusy_25000", env=env, verbose=1)
-    # print("loaded: ", model)
+    model = SAC.load("/mnt/storage/resultsRL/sac_NewReward1_75000", env=env, verbose=1)
+    print("loaded: ", model)
 
     # Define save frequency
     save_frequency = 25000
@@ -80,15 +80,15 @@ def main():
             callback=wandb_callback,
         )
         # Save the model after every `save_frequency` timesteps
-        model.save(f"/mnt/storage/resultsRL/sac_NewReward_{step + n_steps}")
+        model.save(f"/mnt/storage/resultsRL/sac_NewReward_Cars_{step + n_steps}")
         wandb.save(
-            f"/mnt/storage/resultsRL/sac_NewReward_{step + n_steps}.zip"
+            f"/mnt/storage/resultsRL/sac_NewReward_Cars_{step + n_steps}.zip"
         )
         print(f"Model saved at step: {step + n_steps}")
 
     # Save the final model
-    model.save("sac_NewReward_final")
-    wandb.save("sac_NewReward_final.zip")
+    model.save("sac_NewReward_Cars_final")
+    wandb.save("sac_NewReward_Cars_final.zip")
 
     # Finish the training wandb run
     wandb.finish()

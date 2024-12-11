@@ -79,7 +79,10 @@ def has_collided(world: CarlaWorld) -> bool:
 
 
 def get_steering_angle(world: CarlaWorld) -> float:
-    next_wp, _ = world.local_planner.get_plan()[0]
+    if len(world.local_planner.get_plan()) != 0:
+        next_wp, _ = world.local_planner.get_plan()[0]
+    else:
+        return 0
     next_location = next_wp.location
     current_location = world.car.location
     desired_direction_vector = current_location.vector_to(next_location)

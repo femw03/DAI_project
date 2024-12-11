@@ -15,7 +15,7 @@ from ..simulator.extract import (
     has_collided,
     has_completed_navigation,
 )
-from ..visuals import Visuals
+from ..visuals import ObjectDTO, Visuals
 from .carla_setup import setup_carla
 from .feature_extractor import SimpleFeatureExtractor, get_perfect_obs
 
@@ -46,7 +46,7 @@ class CarlaEnv2(gym.Env):
                     1,
                     self.relevant_distance + 10,
                 ]
-            ),
+            ),dtype=np.float32
         )
         # Define actions space
         self.action_space = gym.spaces.Box(
@@ -76,6 +76,7 @@ class CarlaEnv2(gym.Env):
         """
         Apply an action and return the new observation, reward, and done.
         """
+            
         # print("stepping")
         # Apply action
         action = action[0]
@@ -102,7 +103,6 @@ class CarlaEnv2(gym.Env):
 
         observation = get_perfect_obs(world=self.world)  # TODO replace with cv call
 
-
         return (
             self.feature_extractor.extract(observation).to_tensor(),
             reward,
@@ -116,6 +116,12 @@ class CarlaEnv2(gym.Env):
         Calculate reward based on the action and the current environment state.
         Reward based on speed and distance, with constraints on safe driving.
         """
+        if self.world.local_planner.done():
+            print(
+                "made it to destination in time without crash, lets find another route!"
+            )
+            self.world.start_new_route_from_waypoint()
+        
         object_list = get_objects(self.world)
         speed_limit = get_current_max_speed(self.world)
         current_speed = get_current_speed(self.world)
@@ -203,21 +209,27 @@ class CarlaEnv2(gym.Env):
                 )
 
         reward = speed_reward if vehicle_in_front is None else safe_distance_reward
+        #reward = speed_reward
         # Ensure reward is in range [0, 1]
         reward = np.clip(reward, 0, 1)
 
-        # Logging for debugging and analysis
-        wandb.log(
-            {
+
+        information = {
                 "speed_reward": speed_reward,
                 "safe_distance_reward": safe_distance_reward,
                 "reward": reward,
                 "speed_limit": speed_limit,
                 "current_speed": current_speed,
                 "collisions": self.collisionCounter,
-                #"vehicle_in_front": vehicle_in_front,
-                # "stop_flag": stop_flag,
             }
-        )
+        # Logging for debugging and analysis
+        wandb.log(information)
+        self.visuals.information = information
+
+        objects = [
+        ObjectDTO.from_object(obj, is_relevant=vehicle_in_front == obj)
+            for obj in object_list
+        ]
+        self.visuals.detected_objects = objects
 
         return reward
