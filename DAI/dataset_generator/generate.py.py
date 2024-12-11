@@ -1,15 +1,34 @@
-from __future__ import annotations
+#!/usr/bin/env python
 
-from loguru import logger
+# ==============================================================================
+# -- imports -------------------------------------------------------------------
+# ==============================================================================
+
+import glob
 import os
-import shutil
-import cv2
-import os
+import sys
 import shutil
 import os.path
-import numpy as np
+import time
+import cv2
 
-from ...visuals import Visuals
+try:
+    sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
+        sys.version_info.major,
+        sys.version_info.minor,
+        'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
+except IndexError:
+    pass
+
+try:
+    import numpy as np
+except ImportError:
+    raise RuntimeError('cannot import numpy, make sure numpy package is installed')
+
+
+# ==============================================================================
+# -- directories ---------------------------------------------------------------
+# ==============================================================================
 
 # Directories to create/empty
 dirs = ['my_data/', 'draw_bounding_box/', 'custom_labels/']
@@ -22,8 +41,15 @@ for directory in dirs:
     os.makedirs(directory)
 
 
+# ==============================================================================
+# -- global variables ----------------------------------------------------------
+# ==============================================================================
+
 dataEA = len(next(os.walk('SegmentationImage/'))[2])
-visuals = Visuals(1280, 720, 30)
+
+VIEW_WIDTH = 1920//2
+VIEW_HEIGHT = 1080//2
+VIEW_FOV = 90
 
 # Segmentation colors (BGR): https://carla.readthedocs.io/en/latest/ref_sensors/#semantic-segmentation-camera
 CAR_BBOX_COLOR = (0, 0, 255)
@@ -59,10 +85,14 @@ truck_class = 7
 train_class = 8
 rider_class = 9   
 
-rgb_info = np.zeros((visuals.height, visuals.width, 3), dtype="i")
-seg_info = np.zeros((visuals.height, visuals.width, 3), dtype="i")
-area_info = np.zeros(shape=[visuals.height, visuals.width, 3], dtype=np.uint8)
+rgb_info = np.zeros((VIEW_HEIGHT, VIEW_WIDTH, 3), dtype="i")
+seg_info = np.zeros((VIEW_HEIGHT, VIEW_WIDTH, 3), dtype="i")
+area_info = np.zeros(shape=[VIEW_HEIGHT, VIEW_WIDTH, 3], dtype=np.uint8)
 index_count = 0
+
+# ==============================================================================
+# -- classification functions --------------------------------------------------
+# ==============================================================================
 
 # Brings Images and Bounding Box Information
 def reading_data(index):
@@ -107,10 +137,10 @@ def process_object(mask_color, bbox_color, class_id, file):
         cv2.rectangle(rgb_info, (x, y), (x + w, y + h), bbox_color, 2)
 
         # Calculate the darknet format values
-        darknet_x = float(x + w // 2) / float(visuals.width)
-        darknet_y = float(y + h // 2) / float(visuals.height)
-        darknet_width = float(w) / float(visuals.width)
-        darknet_height = float(h) / float(visuals.height)
+        darknet_x = float(x + w // 2) / float(VIEW_WIDTH)
+        darknet_y = float(y + h // 2) / float(VIEW_HEIGHT)
+        darknet_width = float(w) / float(VIEW_WIDTH)
+        darknet_height = float(h) / float(VIEW_HEIGHT)
 
         # Write the bounding box data to the text file
         write_bounding_box(file, class_id, darknet_x, darknet_y, darknet_width, darknet_height)
@@ -139,4 +169,9 @@ def run():
             print(i)
 
 if __name__ == "__main__":
+    start = time.time()
+
     run()
+
+    end = time.time()
+    print(float(end - start))
