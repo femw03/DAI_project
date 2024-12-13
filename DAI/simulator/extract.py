@@ -79,7 +79,10 @@ def has_collided(world: CarlaWorld) -> bool:
 
 
 def get_steering_angle(world: CarlaWorld) -> float:
-    next_wp, _ = world.local_planner.get_plan()[0]
+    if len(world.local_planner.get_plan()) != 0:
+        next_wp, _ = world.local_planner.get_plan()[0]
+    else:
+        return 0
     next_location = next_wp.location
     current_location = world.car.location
     desired_direction_vector = current_location.vector_to(next_location)
@@ -115,3 +118,6 @@ def find_vehicle_in_front(
 
 def has_completed_navigation(world: CarlaWorld):
     return world.local_planner.done()
+
+def get_distance_to_leading(world: CarlaWorld):
+    return world.car.location.distance_to(world.lead_car.location)

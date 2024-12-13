@@ -2,6 +2,7 @@ from typing import Any, Dict
 
 import gymnasium as gym
 import numpy as np
+
 import wandb
 
 from ..simulator import CarlaWorld
@@ -9,12 +10,13 @@ from ..simulator.extract import (
     find_vehicle_in_front,
     get_current_max_speed,
     get_current_speed,
+    get_distance_to_leading,
     get_objects,
     get_steering_angle,
     has_collided,
     has_completed_navigation,
 )
-from ..visuals import Visuals
+from ..visuals import ObjectDTO, Visuals
 from .carla_setup import setup_carla
 from .feature_extractor import SimpleFeatureExtractor, get_perfect_obs
 
@@ -27,7 +29,9 @@ class CarlaEnv2(gym.Env):
         self.perfect = config["perfect"]
         self.world_max_speed = config["world_max_speed"]
         self.visuals = Visuals(fps=30, width=1280, height=720)
-        self.world: CarlaWorld = setup_carla()
+        self.world: CarlaWorld = setup_carla(self.visuals)
+        self.episode_reward = 0
+        self.episode = 0
         self.max_objects = config[
             "max_objects"
         ]  # Maximum number of objects per observation
@@ -43,7 +47,7 @@ class CarlaEnv2(gym.Env):
                     1,
                     self.relevant_distance + 10,
                 ]
-            ),
+            ),dtype=np.float32
         )
         # Define actions space
         self.action_space = gym.spaces.Box(
@@ -57,12 +61,15 @@ class CarlaEnv2(gym.Env):
         Reset the environment to initial state and return initial observation.
         """
         print("resetting")
+        self.episode += 1
+        wandb.log({"episode_reward": self.episode_reward, "episode": self.episode})
+        self.episode_reward = 0
         # Reset Carla world
         self.world.reset()
         self.world.await_next_tick()
         # Set the random seed if provided
         self.feature_extractor.reset()
-        perfect = get_perfect_obs()
+        perfect = get_perfect_obs(world=self.world)
 
         return self.feature_extractor.extract(perfect).to_tensor(), {}
 
@@ -70,6 +77,7 @@ class CarlaEnv2(gym.Env):
         """
         Apply an action and return the new observation, reward, and done.
         """
+            
         # print("stepping")
         # Apply action
         action = action[0]
@@ -83,21 +91,28 @@ class CarlaEnv2(gym.Env):
 
         # Compute reward
         reward = self._get_reward()
-
+        self.episode_reward += reward
         # Check if the episode is terminated
         if has_completed_navigation(self.world):
+            print("completed nav without crash, finding new route!")
             self.world.start_new_route_from_waypoint()
 
-        terminated = has_collided(self.world)
-        if terminated:
+        crash = has_collided(self.world) 
+        if crash:
             self.collisionCounter += 1
+        dis = get_distance_to_leading(self.world) > 50
+        terminated = crash or dis
         truncated = False
         info = {}
 
-        observation = get_perfect_obs()  # TODO replace with cv call
+        observation = get_perfect_obs(world=self.world)  # TODO replace with cv call
 
+        features = self.feature_extractor.extract(observation)
+        # Let's cheat!!!
+        features.is_car_in_front = True
+        features.distance_to_car_in_front = get_distance_to_leading(self.world)
         return (
-            self.feature_extractor.extract(observation),
+            features.to_tensor(),
             reward,
             terminated,
             truncated,
@@ -109,6 +124,12 @@ class CarlaEnv2(gym.Env):
         Calculate reward based on the action and the current environment state.
         Reward based on speed and distance, with constraints on safe driving.
         """
+        if self.world.local_planner.done():
+            print(
+                "made it to destination in time without crash, lets find another route!"
+            )
+            self.world.start_new_route_from_waypoint()
+        
         object_list = get_objects(self.world)
         speed_limit = get_current_max_speed(self.world)
         current_speed = get_current_speed(self.world)
@@ -176,7 +197,7 @@ class CarlaEnv2(gym.Env):
                     current_speed / 3.6
                 )  # Safe distance = 2 seconds of travel in m/s
             else:
-                safe_distance = 1
+                safe_distance = 2
 
             lower_bound = safe_distance - safe_distance_margin
             upper_bound = safe_distance + safe_distance_margin
@@ -196,20 +217,27 @@ class CarlaEnv2(gym.Env):
                 )
 
         reward = speed_reward if vehicle_in_front is None else safe_distance_reward
+        #reward = speed_reward
         # Ensure reward is in range [0, 1]
         reward = np.clip(reward, 0, 1)
 
-        # Logging for debugging and analysis
-        wandb.log(
-            {
+
+        information = {
                 "speed_reward": speed_reward,
                 "safe_distance_reward": safe_distance_reward,
                 "reward": reward,
                 "speed_limit": speed_limit,
                 "current_speed": current_speed,
-                "collision": collision,
-                # "stop_flag": stop_flag,
+                "collisions": self.collisionCounter,
             }
-        )
+        # Logging for debugging and analysis
+        wandb.log(information)
+        #self.visuals.information = information
+
+        """objects = [
+        ObjectDTO.from_object(obj, is_relevant=vehicle_in_front == obj)
+            for obj in object_list
+        ]
+        self.visuals.detected_objects = objects"""
 
         return reward

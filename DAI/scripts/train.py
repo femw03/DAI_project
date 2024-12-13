@@ -2,11 +2,12 @@ import sys
 import warnings
 
 import numpy as np
-import wandb
 from gymnasium.wrappers import TimeLimit
 from loguru import logger
 from stable_baselines3 import SAC
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
+
+import wandb
 from wandb.integration.sb3 import WandbCallback
 
 # Custom modules
@@ -52,14 +53,14 @@ def main():
 
     logger.info("Carla world initialized!")
 
-    model = SAC("MlpPolicy", env, verbose=1)
-    print("made model: ", model)
+    #model = SAC("MlpPolicy", env, verbose=1)
+    #print("made model: ", model)
     # Load the previously trained model
-    # model = SAC.load("sac_CarsOnlyBusy_25000", env=env, verbose=1)
-    # print("loaded: ", model)
+    model = SAC.load("/mnt/storage/resultsRL/sac_NewReward1_75000", env=env, verbose=1)
+    print("loaded: ", model)
 
     # Define save frequency
-    save_frequency = 25000
+    save_frequency = 5000
     total_timesteps = 100000  # Total timesteps to train
     n_steps = save_frequency  # Steps per save
 
@@ -79,15 +80,15 @@ def main():
             callback=wandb_callback,
         )
         # Save the model after every `save_frequency` timesteps
-        model.save(f"/mnt/storage/resultsRL/sac_OnlySpeedFrameStack_{step + n_steps}")
+        model.save(f"/mnt/storage/resultsRL/sac_NewReward_Cars_{step + n_steps}")
         wandb.save(
-            f"/mnt/storage/resultsRL/sac_OnlySpeedFrameStack_{step + n_steps}.zip"
+            f"/mnt/storage/resultsRL/sac_NewReward_Cars_{step + n_steps}.zip"
         )
         print(f"Model saved at step: {step + n_steps}")
 
     # Save the final model
-    model.save("sac_OnlySpeedFrameStack_final")
-    wandb.save("sac_OnlySpeedFrameStack_final.zip")
+    model.save("sac_NewReward_Cars_final")
+    wandb.save("sac_NewReward_Cars_final.zip")
 
     # Finish the training wandb run
     wandb.finish()
