@@ -63,6 +63,7 @@ class CarlaWorld(Thread, World):
 
         self.client = CarlaClient(port=port)
         self.world = self.client.world
+        #self.world = self.client.load_world('Town02')
         self.traffic_manager = self.client.get_traffic_manager()
         self.global_planner = GlobalRoutePlanner(self.world.map)
 
@@ -154,7 +155,10 @@ class CarlaWorld(Thread, World):
 
         self.local_planner = LocalPlanner(self.car, self.world.delta_seconds)
         # route = self.generate_new_route()
-        route = self.generate_new_route(self.car.location)
+        route = None
+        while route is None:    
+            location = CarlaLocation.from_native(random.choice(self.world.map.spawn_points).location)
+            route = self.generate_new_route(location)
         self.local_planner.set_global_plan(route)
         self.car.transform = route[0][0].transform
 
@@ -264,9 +268,12 @@ class CarlaWorld(Thread, World):
 
     def generate_new_route(
         self, start: CarlaLocation
-    ) -> List[Tuple[CarlaWaypoint, RoadOption]]:
+    ) -> Optional[List[Tuple[CarlaWaypoint, RoadOption]]]:
         route = None
+        loop_count = 0
         while route is None:
+            if loop_count > 20:
+                return None
             try:
                 target = CarlaLocation.from_native(
                     random.choice(self.world.map.spawn_points).location
@@ -274,7 +281,7 @@ class CarlaWorld(Thread, World):
                 route = self.global_planner.trace_route(start, target)
             except Exception:
                 logger.warning("Failed to find route, trying again")
-
+                loop_count += 1
         return route
 
     """def generate_new_route(
@@ -294,19 +301,27 @@ class CarlaWorld(Thread, World):
                 logger.warning("Failed to find route, trying again")
 
         return route"""
+    
     def setup_routes(self, start: carla.Transform) -> None:
-
-
         new_route = self.generate_new_route(
             CarlaLocation.from_native(start.location),
         )
+        if new_route is None:
+            self.reset()
+            return
         waypoints = [waypoint for waypoint, _ in new_route]
         next_wp_result = find_next_wp_from(waypoints)
+        loop_count = 0
         while next_wp_result is None:
+            if loop_count > 20:
+                self.reset()
+                return 
             new_route = self.generate_new_route(
             CarlaLocation.from_native(start.location),
             )
             next_wp_result = find_next_wp_from(waypoints)
+            logger.warning("Failed to find route, trying again, way down here")
+            loop_count += 1
         next_wp, index = next_wp_result
         locations = [waypoint.location for waypoint in waypoints[index:]]
         self.lead_car.transform = next_wp.transform

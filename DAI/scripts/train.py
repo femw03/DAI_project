@@ -14,7 +14,7 @@ from wandb.integration.sb3 import WandbCallback
 from ..environment import CarlaEnv2
 
 logger.remove()
-logger.add(sys.stderr, level="ERROR")
+logger.add(sys.stderr, level="WARNING")
 
 
 def main():
@@ -56,11 +56,11 @@ def main():
     #model = SAC("MlpPolicy", env, verbose=1)
     #print("made model: ", model)
     # Load the previously trained model
-    model = SAC.load("/mnt/storage/resultsRL/sac_NewReward1_75000", env=env, verbose=1)
+    model = SAC.load("/opt/carla-simulator/Intercept2/DAI_project/DAI/scripts/Saves/sac_NewReward_follow_cars1_50000", env=env, verbose=1)
     print("loaded: ", model)
 
     # Define save frequency
-    save_frequency = 5000
+    save_frequency = 10000
     total_timesteps = 100000  # Total timesteps to train
     n_steps = save_frequency  # Steps per save
 
@@ -80,15 +80,15 @@ def main():
             callback=wandb_callback,
         )
         # Save the model after every `save_frequency` timesteps
-        model.save(f"/mnt/storage/resultsRL/sac_NewReward_Cars_{step + n_steps}")
+        model.save(f"/mnt/storage/resultsRL/New_town2_{step + n_steps}")
         wandb.save(
-            f"/mnt/storage/resultsRL/sac_NewReward_Cars_{step + n_steps}.zip"
+            f"/mnt/storage/resultsRL/New_town2_{step + n_steps}.zip"
         )
         print(f"Model saved at step: {step + n_steps}")
 
     # Save the final model
-    model.save("sac_NewReward_Cars_final")
-    wandb.save("sac_NewReward_Cars_final.zip")
+    model.save("New_town2_final")
+    wandb.save("New_town2_final.zip")
 
     # Finish the training wandb run
     wandb.finish()
@@ -111,3 +111,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# successs!!!!
+# DAI/scripts/Saves/sac_NewReward_follow_cars1_50000.zip
+# /mnt/storage/resultsRL/Continue_on_mock_10000.zip
+# /mnt/storage/resultsRL/New_town2_80000.zip # seems very good!!!

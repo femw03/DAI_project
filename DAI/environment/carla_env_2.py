@@ -1,10 +1,13 @@
 from typing import Any, Dict
 
 import gymnasium as gym
+
+#import keyboard
 import numpy as np
 
 import wandb
 
+from ..cv import ComputerVisionModuleImp
 from ..simulator import CarlaWorld
 from ..simulator.extract import (
     find_vehicle_in_front,
@@ -56,6 +59,15 @@ class CarlaEnv2(gym.Env):
 
         self.feature_extractor = SimpleFeatureExtractor()
 
+        self.cv = ComputerVisionModuleImp()
+
+        # Add key listener for reset 
+        #keyboard.add_hotkey('r', self.manual_reset)
+
+    """def manual_reset(self): 
+        print("Manual reset triggered") 
+        self.reset()"""
+
     def reset(self, seed=None, **kwargs):
         """
         Reset the environment to initial state and return initial observation.
@@ -100,12 +112,15 @@ class CarlaEnv2(gym.Env):
         crash = has_collided(self.world) 
         if crash:
             self.collisionCounter += 1
-        dis = get_distance_to_leading(self.world) > 50
+        dis = get_distance_to_leading(self.world) > 100
         terminated = crash or dis
         truncated = False
         info = {}
 
         observation = get_perfect_obs(world=self.world)  # TODO replace with cv call
+
+        """data = self.world.data
+        observation, process_time = self.cv.process_data(data)"""
 
         features = self.feature_extractor.extract(observation)
         # Let's cheat!!!
@@ -136,7 +151,9 @@ class CarlaEnv2(gym.Env):
         # traffic_light = get_current_affecting_light_state(self.world)
         collision = has_collided(self.world)
         angle = get_steering_angle(self.world)
-        vehicle_in_front = find_vehicle_in_front(angle, object_list)
+        #vehicle_in_front = find_vehicle_in_front(angle, object_list)
+        vehicle_in_front = True # train with leading vehicle
+        distance_to_car_in_front = get_distance_to_leading(self.world)
 
         # Constants
         speed_margin = 0.1 * speed_limit
@@ -191,18 +208,20 @@ class CarlaEnv2(gym.Env):
         #     if (
         #         abs(obj.angle) <= np.radians(2) and obj.distance != 0
         #     ):  # Object directly in front
-        elif vehicle_in_front.distance <= max_safe_distance:
+        #elif vehicle_in_front.distance <= max_safe_distance and current_speed < speed_limit + speed_margin:
+        
+        elif distance_to_car_in_front <= max_safe_distance and current_speed < speed_limit + speed_margin:
             if current_speed > 1:
                 safe_distance = 2 * (
                     current_speed / 3.6
                 )  # Safe distance = 2 seconds of travel in m/s
             else:
-                safe_distance = 2
+                safe_distance = 6
 
             lower_bound = safe_distance - safe_distance_margin
             upper_bound = safe_distance + safe_distance_margin
 
-            if lower_bound <= vehicle_in_front.distance <= upper_bound:
+            """if lower_bound <= vehicle_in_front.distance <= upper_bound:
                 safe_distance_reward = 1  # Perfect safe distance
             elif vehicle_in_front.distance < lower_bound:
                 safe_distance_reward = max(
@@ -214,13 +233,25 @@ class CarlaEnv2(gym.Env):
                     1
                     - (vehicle_in_front.distance - upper_bound)
                     / (max_safe_distance - upper_bound),
+                )"""
+            if lower_bound <= distance_to_car_in_front <= upper_bound:
+                safe_distance_reward = 1  # Perfect safe distance
+            elif distance_to_car_in_front < lower_bound:
+                safe_distance_reward = max(
+                    0, distance_to_car_in_front / lower_bound
+                )  # Linearly decrease to 0
+            elif distance_to_car_in_front > upper_bound:
+                safe_distance_reward = max(
+                    0,
+                    1
+                    - (distance_to_car_in_front - upper_bound)
+                    / (max_safe_distance - upper_bound),
                 )
 
         reward = speed_reward if vehicle_in_front is None else safe_distance_reward
         #reward = speed_reward
         # Ensure reward is in range [0, 1]
         reward = np.clip(reward, 0, 1)
-
 
         information = {
                 "speed_reward": speed_reward,
@@ -232,12 +263,12 @@ class CarlaEnv2(gym.Env):
             }
         # Logging for debugging and analysis
         wandb.log(information)
-        #self.visuals.information = information
+        self.visuals.information = information
 
-        """objects = [
+        objects = [
         ObjectDTO.from_object(obj, is_relevant=vehicle_in_front == obj)
             for obj in object_list
         ]
-        self.visuals.detected_objects = objects"""
+        self.visuals.detected_objects = objects
 
         return reward

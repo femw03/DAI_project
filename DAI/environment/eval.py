@@ -8,20 +8,20 @@ import random
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
+from gymnasium.wrappers import TimeLimit
 from loguru import logger
+from stable_baselines3 import SAC
+from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
 
 logger.remove()
 logger.add(sys.stderr, level="INFO")
 
 import ray
-import wandb
 from gymnasium.envs.registration import register
-from gymnasium.wrappers import TimeLimit
 from ray.rllib.algorithms.sac import SACConfig
 from ray.tune.registry import register_env
-from stable_baselines3 import SAC
-from wandb.integration.sb3 import WandbCallback
 
+import wandb
 from DAI.interfaces import Object, ObjectType
 from DAI.simulator.extract import (
     get_current_affecting_light_state,
@@ -31,10 +31,10 @@ from DAI.simulator.extract import (
     has_collided,
 )
 from DAI.simulator.wrappers import CarlaTrafficLightState
+from wandb.integration.sb3 import WandbCallback
 
 # Custom modules
-from ...cv import ComputerVisionModuleImp
-from .carla_env import CarlaEnv
+from .carla_env_2 import CarlaEnv2
 from .carla_setup import setup_carla
 
 # Initialize wandb
@@ -42,40 +42,42 @@ wandb.init(
     project="carla_sac_eval",
     config={
         "perfect": True,
-        "world_max_speed": 100,
+        "world_max_speed": 120,
         "max_objects": 30,
-        "relevant_distance": 25,
-        "total_timesteps": 400000,
-    },
+        "relevant_distance": 100,
+        "total_timesteps": 100000,
+        },
 )
-
 
 # Environment configuration
 config = wandb.config
 
 # Create the custom environment
-base_env = CarlaEnv(config)  # Create the base environment
-env = TimeLimit(base_env, max_episode_steps=1000)  # Wrap with TimeLimit
+def create_env():
+    base_env = CarlaEnv2(config)  # Create the base environment
+    env = TimeLimit(base_env, max_episode_steps=1000)  # Wrap with TimeLimit
+    return env
 
-model = SAC.load("sac_CarsOnly_final", env=env, verbose=1)
+env = DummyVecEnv([create_env])
+num_stacked_frames = 4
+env = VecFrameStack(env, num_stacked_frames)  # Wrap with VecFrameStack
+
+model = SAC.load("/mnt/storage/resultsRL/New_town2_80000", env=env, verbose=1)
 print("loaded: ", model)
 
-# Define save frequency
-save_frequency = 50000
-total_timesteps = 400000  # Total timesteps to train
-n_steps = save_frequency  # Steps per save
-
-
-obs, _ = env.reset()  # Adjusting for SB3 VecEnv API
+obs = env.reset()
 i = 0
 for _ in range(10000):
     i += 1
     action, _states = model.predict(obs)
-    obs, rewards, terminated, truncated, infos = env.step(action)
-
-    # env.render()
-    if terminated or truncated:
-        obs, _ = env.reset()  # Adjusting for SB3 VecEnv API
+    obs, rewards, dones, infos = env.step(action)
+    # print("observation shape: ", obs.shape)
+    if np.any(dones):
+        obs = env.reset()
     print("eval percentage: ", f"{i}/10000 ", 100 * i / 10000, "%")
+
+# Finish the wandb run
+wandb.finish()
+
 # Finish the wandb run
 wandb.finish()
