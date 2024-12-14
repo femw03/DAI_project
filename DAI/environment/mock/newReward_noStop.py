@@ -1,8 +1,10 @@
 import gymnasium as gym
-from gymnasium import spaces
 import numpy as np
 import pygame
+from gymnasium import spaces
+
 import wandb  # Import wandb
+
 
 class AdaptiveCruiseControlEnv(gym.Env):
     def __init__(self, config={}, render_mode=None):
@@ -32,6 +34,7 @@ class AdaptiveCruiseControlEnv(gym.Env):
         self.screen = None
         self.episode = 0
         self.episode_reward = 0
+        self.car_in_front = 1
 
         # Initialize wandb
         wandb.init(project="adaptive_cruise_control", config=config)
@@ -54,7 +57,8 @@ class AdaptiveCruiseControlEnv(gym.Env):
         wandb.log({"episode_reward": self.episode_reward})
         self.episode_reward = 0
         self.car_disappear_counter = 0  # Counter to manage car disappearance
-        return np.array([self.agent_speed, self.max_speed, 1, self.relative_distance], dtype=np.float32), {}
+        self.car_in_front = 1
+        return np.array([self.agent_speed, self.max_speed, self.car_in_front, self.relative_distance], dtype=np.float32), {}
 
     def step(self, action):
         terminated = False
@@ -85,6 +89,7 @@ class AdaptiveCruiseControlEnv(gym.Env):
         # Introduce car disappearance randomly
         if self.time_step_counter % 600 == 0:  # Every 1000 steps, the car might disappear
             if np.random.rand() < 0.5:  # 50% chance to disappear
+                self.car_in_front = 0
                 self.current_target_speed = 0.0
                 self.car_disappear_counter = 500  # Car disappears for 500 steps
 
@@ -92,6 +97,7 @@ class AdaptiveCruiseControlEnv(gym.Env):
             self.car_disappear_counter -= 1
             if self.car_disappear_counter == 0:
                 self.current_target_speed = self.target_speed  # Car reappears
+                self.car_in_front = 1
 
         self.relative_distance += (self.current_target_speed - self.agent_speed) * self.dt
 
@@ -111,7 +117,7 @@ class AdaptiveCruiseControlEnv(gym.Env):
             "reward": reward,
             "action": action[0]
         })
-        observation = np.array([self.agent_speed, self.max_speed, 1, self.relative_distance], dtype=np.float32)
+        observation = np.array([self.agent_speed, self.max_speed, self.car_in_front, self.relative_distance], dtype=np.float32)
         
         return observation, reward, terminated, truncated, {}
 
