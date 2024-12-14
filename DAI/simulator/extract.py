@@ -4,10 +4,10 @@ This file contains the code to extract perfect information from the carla world
 
 from typing import List, Optional
 
-import numpy as np
 from loguru import logger
 
 from ..cv.calculate_distance import calculate_anlge, calculate_object_distance
+from ..cv.lane_detection import expected_deviation
 from ..interfaces import Object, ObjectType
 from .carla_world import CarlaWorld
 from .numpy_image import NumpyLidar
@@ -33,7 +33,7 @@ def get_objects(world: CarlaWorld) -> List[Object]:
     depth = NumpyLidar(
         world.depth_image,
         world.view_FOV,
-        lambda x: (x / 255) * 1000,
+        lambda x: x * 1000,
     )
     result_with_spatial_info = [
         (type, box, calculate_object_distance(depth, box)) for type, box in result
@@ -91,7 +91,12 @@ def get_steering_angle(world: CarlaWorld) -> float:
 
 
 def find_vehicle_in_front(
-    angle: float, observation: List[Object], threshold=np.pi / 36
+    angle: float,
+    observation: List[Object],
+    width,
+    threshold,
+    correction_factor,
+    boost_factor,
 ) -> Optional[Object]:
     """Finds the vehicle in front of the car,"""
     vehicle_types = [
@@ -105,19 +110,46 @@ def find_vehicle_in_front(
     ]
 
     vehicles = [obj for obj in observation if obj.type in vehicle_types]
-    within_angle = [
-        (vehicle, abs(vehicle.angle - angle))
+    expected_vehicle_deviations = [
+        expected_deviation(
+            vehicle.distance,
+            angle,
+            correction_factor=correction_factor,
+            boost_factor=boost_factor,
+        )
         for vehicle in vehicles
-        if abs(vehicle.angle - angle) < threshold
     ]
-    sorted_by_distance = sorted(
-        within_angle, key=lambda vehicle: vehicle[0].distance / 20 + vehicle[1]
-    )
-    return sorted_by_distance[0][0] if len(sorted_by_distance) > 0 else None
+    margins = [(threshold / vehicle.distance) for vehicle in vehicles]
+    vehicle_x_coords = [
+        (vehicle.boundingBox.x2 - vehicle.boundingBox.x1) // 2 + vehicle.boundingBox.x1
+        for vehicle in vehicles
+    ]
+    centered_x_coords = [
+        vehicle_x_coord - (width // 2) for vehicle_x_coord in vehicle_x_coords
+    ]
+
+    valid_vehicles = [
+        vehicle
+        for vehicle, deviation, margin, x_courd in zip(
+            vehicles, expected_vehicle_deviations, margins, centered_x_coords
+        )
+        if abs(deviation - x_courd) < margin
+    ]
+    # print(
+    #     expected_vehicle_deviations,
+    #     margins,
+    #     # vehicle_x_coords,
+    #     centered_x_coords,
+    #     [vehicle.distance for vehicle in vehicles],
+    #     # valid_vehicles,
+    # )
+    sorted_by_distance = sorted(valid_vehicles, key=lambda vehicle: vehicle.distance)
+    return sorted_by_distance[0] if len(sorted_by_distance) > 0 else None
 
 
 def has_completed_navigation(world: CarlaWorld):
     return world.local_planner.done()
+
 
 def get_distance_to_leading(world: CarlaWorld):
     return world.car.location.distance_to(world.lead_car.location)

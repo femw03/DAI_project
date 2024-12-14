@@ -48,6 +48,7 @@ class CarlaWorld(Thread, World):
         view_FOV=90,
         walkers=50,
         cars=80,
+        has_lead_car=False,
     ) -> None:
         World.__init__(self)
         Thread.__init__(self)
@@ -60,6 +61,7 @@ class CarlaWorld(Thread, World):
         self.number_of_walkers = walkers
         self.number_of_cars = cars
         self.paused = False
+        self.has_lead_car = has_lead_car
 
         self.client = CarlaClient(port=port)
         self.world = self.client.world
@@ -85,9 +87,10 @@ class CarlaWorld(Thread, World):
         location = random.choice(world.map.spawn_points)
         # logger.info(f"Spawning {car_bp} at {location}")
         self.car = world.spawn_vehicle(car_bps[0], location)
-        self.lead_car = world.spawn_vehicle(
-            car_bps[0], random.choice(world.map.spawn_points)
-        )
+        if self.has_lead_car:
+            self.lead_car = world.spawn_vehicle(
+                car_bps[0], random.choice(world.map.spawn_points)
+            )
 
         rgb_camera_bp = CarlaRGBBlueprint.from_blueprint(
             world.blueprint_library.filter("sensor.camera.rgb")[0]
@@ -112,13 +115,23 @@ class CarlaWorld(Thread, World):
         depth_camera_bp["image_size_y"] = str(self.view_height)
         depth_camera_bp["fov"] = str(self.view_FOV)
         self.depth_camera = self.car.add_camera(depth_camera_bp)
+        self.raw = None
 
         def save_depth_image(image: CarlaImage):
-            converted = image.convert(CarlaColorConverter.DEPTH())
-            numpy_image = converted.numpy_image[..., 0]
-            if numpy_image is None:
-                return
-            self.depth_image = numpy_image
+            raw_data = np.frombuffer(image.raw_data, dtype=np.uint8).reshape(
+                self.view_height, self.view_width, 4
+            )  # BGRA
+            compressed = (
+                (
+                    raw_data[:, :, 0].astype(np.uint32) << 16
+                )  # Shift second channel by 16 bits
+                | (
+                    raw_data[:, :, 1].astype(np.uint32) << 8
+                )  # Shift third channel by 8 bits
+                | (raw_data[:, :, 2].astype(np.uint32))  # Keep fourth channel as is
+            )
+            normalized = compressed / (256 * 256 * 256 - 1)
+            self.depth_image = normalized
             # logger.debug(
             #    f"Depth image [{self.depth_image.min(), self.depth_image.max()}] shape: {self.depth_image.shape}"
             # )
@@ -165,9 +178,10 @@ class CarlaWorld(Thread, World):
         waypoints = [waypoint for waypoint, _ in route]
         next_wp, index = find_next_wp_from(waypoints)
         locations = [waypoint.location for waypoint in waypoints[index:]]
-        self.lead_car.transform = next_wp.transform
-        self.lead_car.autopilot = True
-        self.traffic_manager.set_path(self.lead_car, locations)
+        if self.has_lead_car:
+            self.lead_car.transform = next_wp.transform
+            self.lead_car.autopilot = True
+            self.traffic_manager.set_path(self.lead_car, locations)
 
     def setup(self):
         """Spawns the car and external actors"""
@@ -182,7 +196,9 @@ class CarlaWorld(Thread, World):
         self.cars = spawn_vehicles(self.client, self.number_of_cars)
         self.pedestrians = spawn_walkers(self.client, self.number_of_walkers)
         # self.all_actors = [*self.cars, *self.pedestrians]
-        self.all_actors = [*self.cars, *self.pedestrians, self.car, self.lead_car]
+        self.all_actors = [*self.cars, *self.pedestrians, self.car]
+        if self.has_lead_car:
+            self.all_actors.append(self.lead_car)
         self.loop_running = True
 
     def run(self):
@@ -212,7 +228,7 @@ class CarlaWorld(Thread, World):
                             lidar_data=NumpyLidar(
                                 self.depth_image,
                                 self.view_FOV,
-                                converter=lambda x: (x / 255) * 1000,
+                                converter=lambda x: x * 1000,
                             ),
                             current_speed=self.car.velocity.magnitude,
                             time_stamp=now,
@@ -301,7 +317,7 @@ class CarlaWorld(Thread, World):
                 logger.warning("Failed to find route, trying again")
 
         return route"""
-    
+
     def setup_routes(self, start: carla.Transform) -> None:
         new_route = self.generate_new_route(
             CarlaLocation.from_native(start.location),
@@ -317,16 +333,17 @@ class CarlaWorld(Thread, World):
                 self.reset()
                 return 
             new_route = self.generate_new_route(
-            CarlaLocation.from_native(start.location),
+                CarlaLocation.from_native(start.location),
             )
             next_wp_result = find_next_wp_from(waypoints)
             logger.warning("Failed to find route, trying again, way down here")
             loop_count += 1
         next_wp, index = next_wp_result
         locations = [waypoint.location for waypoint in waypoints[index:]]
-        self.lead_car.transform = next_wp.transform
-        self.lead_car.autopilot = True
-        self.traffic_manager.set_path(self.lead_car, locations)    
+        if self.has_lead_car:
+            self.lead_car.transform = next_wp.transform
+            self.lead_car.autopilot = True
+            self.traffic_manager.set_path(self.lead_car, locations)
         self.local_planner.set_global_plan(new_route)
         self.car.transform = self.local_planner.get_plan().popleft()[0].transform
         self.car.velocity = CarlaVector3D.fromxyz(
