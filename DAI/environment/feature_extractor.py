@@ -7,7 +7,7 @@ from typing import Optional
 import torch
 
 from ..interfaces import AgentFeatures, CarlaObservation, FeatureExtractor
-from ..simulator import CarlaWorld
+from ..simulator import CarlaWorld, tracker, wrappers
 from ..simulator.extract import (
     find_vehicle_in_front,
     get_current_max_speed,
@@ -98,12 +98,19 @@ def get_perfect_obs(world: CarlaWorld) -> CarlaObservation:
     object_list = get_objects(world)
     speed_limit = get_current_max_speed(world)
     current_speed = get_current_speed(world)
-
+    angle = get_steering_angle(world)
+    route = [waypoint for waypoint, _ in world.local_planner.get_plan()]
+    next_wp_result = tracker.find_next_wp_from(route, min_distance=20)
+    if next_wp_result is not None:
+        angle = wrappers.CarlaVector3D(world.car.transform.get_forward_vector()).angle_to(
+            world.car.location.vector_to(next_wp_result[0].location)
+        )
+ 
     return CarlaObservation(
         objects=object_list,
         current_speed=current_speed,
         max_speed=speed_limit,
-        angle=get_steering_angle(world),
+        angle=angle,
         distance_to_pedestrian_crossing=None,
         distance_to_stop=None,
         pedestrian_crossing_flag=None,

@@ -18,9 +18,9 @@ class AdaptiveCruiseControlEnv(gym.Env):
 
         # Simulation parameters
         self.dt = 0.1
-        self.max_speed = 30.0
+        self.max_speed = 30.0/3.6 # m/s
         self.min_distance = 10.0
-        self.max_distance = 100.0
+        self.max_distance = 75.0
 
         # Initialize pygame for visualization
         self.screen_width = 800
@@ -47,8 +47,8 @@ class AdaptiveCruiseControlEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.episode += 1
-        self.agent_speed = np.random.uniform(0, 5)
-        self.target_speed = 10.0
+        self.agent_speed = np.random.uniform(0, 2)
+        self.target_speed = 10.0/3.6
         self.current_target_speed = self.target_speed
         self.relative_distance = np.random.uniform(20, 50)
         self.last_action = 0.5  # Initialize to neutral action
@@ -71,12 +71,12 @@ class AdaptiveCruiseControlEnv(gym.Env):
             throttle_intensity = (action[0] - 0.5) * 2
             self.agent_speed = self.agent_speed + throttle_intensity * 2.0 * self.dt
 
-        if self.agent_speed > self.max_speed + 10:
+        if self.agent_speed > self.max_speed + 10/3.6:
             terminated = True
 
         # Update target speed gradually
         if self.time_step_counter % self.target_speed_update_interval == 0:
-            self.target_speed = np.random.uniform(10, 30)
+            self.target_speed = np.random.uniform(0, self.max_speed)
             self.target_speed_update_interval = 250
 
         # Gradually adjust current target speed towards target speed
@@ -89,15 +89,16 @@ class AdaptiveCruiseControlEnv(gym.Env):
         # Introduce car disappearance randomly
         if self.time_step_counter % 600 == 0:  # Every 1000 steps, the car might disappear
             if np.random.rand() < 0.5:  # 50% chance to disappear
-                self.car_in_front = 0
-                self.current_target_speed = 0.0
+                self.current_target_speed = self.max_speed
                 self.car_disappear_counter = 500  # Car disappears for 500 steps
+                self.car_in_front = 0
 
         if self.car_disappear_counter > 0:
             self.car_disappear_counter -= 1
             if self.car_disappear_counter == 0:
-                self.current_target_speed = self.target_speed  # Car reappears
-                self.car_in_front = 1
+                self.target_speed = 10/3.6
+                self.car_in_front = 1  # Car reappears at least 30m ahead
+                self.relative_distance = 30 + np.random.uniform(0, 30)
 
         self.relative_distance += (self.current_target_speed - self.agent_speed) * self.dt
 
@@ -112,8 +113,8 @@ class AdaptiveCruiseControlEnv(gym.Env):
         wandb.log({
             "episode": self.episode,
             "distance": self.relative_distance,
-            "agent_speed": self.agent_speed,
-            "target_speed": self.current_target_speed,
+            "agent_speed": self.agent_speed*3.6,
+            "target_speed": self.current_target_speed*3.6,
             "reward": reward,
             "action": action[0]
         })
@@ -182,15 +183,16 @@ class AdaptiveCruiseControlEnv(gym.Env):
  
         # Constants
         safe_distance_margin = 0.25
-        max_safe_distance = 100
+        max_safe_distance = 50
  
         # Default reward
         reward = 0
+        safe_distance_reward = 0
 
         # Speed Reward Calculation 
         speed_reward = 0 
         max_speed = speed_limit + speed_margin 
-        if self.current_target_speed == 0: # No car in front 
+        if self.car_in_front == 0: # No car in front 
             if current_speed == 0: 
                 speed_reward = 0 # No reward for being stationary 
             elif 0 < current_speed <= speed_limit: 
@@ -199,33 +201,33 @@ class AdaptiveCruiseControlEnv(gym.Env):
                 speed_reward = max(0, (max_speed - current_speed) / (max_speed - speed_limit)) # Linearly ramp down 
             elif current_speed >= max_speed: 
                 speed_reward = 0 # No reward if speed exceeds or equals max_speed
-
-        safe_distance_reward = 0
-        if current_speed > 1:
-            safe_distance = 2 * (
-                current_speed / 3.6
-            )  # Safe distance = 2 seconds of travel in m/s
         else:
-            safe_distance = 1
+            safe_distance_reward = 0
+            if current_speed > 1/3.6:
+                safe_distance = 2 * (
+                    current_speed
+                )  # Safe distance = 2 seconds of travel in m/s
+            else:
+                safe_distance = 6
 
-        lower_bound = safe_distance - safe_distance_margin
-        upper_bound = safe_distance + safe_distance_margin
+            lower_bound = safe_distance - safe_distance_margin
+            upper_bound = safe_distance + safe_distance_margin
 
-        if lower_bound <= self.relative_distance <= upper_bound:
-            safe_distance_reward = 1  # Perfect safe distance
-        elif self.relative_distance < lower_bound:
-            safe_distance_reward = max(
-                0, self.relative_distance / lower_bound
-            )  # Linearly decrease to 0
-        elif self.relative_distance > upper_bound:
-            safe_distance_reward = max(
-                0,
-                1
-                - (self.relative_distance - upper_bound)
-                / (max_safe_distance - upper_bound),
-            )
- 
-        reward = speed_reward if self.current_target_speed == 0 else safe_distance_reward 
+            if lower_bound <= self.relative_distance <= upper_bound:
+                safe_distance_reward = 1  # Perfect safe distance
+            elif self.relative_distance < lower_bound:
+                safe_distance_reward = max(
+                    0, self.relative_distance / lower_bound
+                )  # Linearly decrease to 0
+            elif self.relative_distance > upper_bound:
+                safe_distance_reward = max(
+                    0,
+                    1
+                    - (self.relative_distance - upper_bound)
+                    / (max_safe_distance - upper_bound),
+                )
+    
+        reward = speed_reward if self.car_in_front == 0 else safe_distance_reward 
         # Ensure reward is in range [0, 1] 
         reward = np.clip(reward, 0, 1)
  
@@ -234,8 +236,8 @@ class AdaptiveCruiseControlEnv(gym.Env):
             {"speed_reward": speed_reward, 
              "safe_distance_reward": safe_distance_reward, 
              "reward": reward, 
-             "speed_limit": speed_limit, 
-             "current_speed": current_speed 
+             "speed_limit": speed_limit*3.6, 
+             "current_speed": current_speed*3.6 
              }
         )
         return reward

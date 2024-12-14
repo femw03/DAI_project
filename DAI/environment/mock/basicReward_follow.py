@@ -18,9 +18,9 @@ class AdaptiveCruiseControlEnv(gym.Env):
 
         # Simulation parameters
         self.dt = 0.1
-        self.max_speed = 30.0
+        self.max_speed = 30.0/3.6 # m/s
         self.min_distance = 10.0
-        self.max_distance = 100.0
+        self.max_distance = 75.0
 
         # Initialize pygame for visualization
         self.screen_width = 800
@@ -46,8 +46,8 @@ class AdaptiveCruiseControlEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.episode += 1
-        self.agent_speed = np.random.uniform(0, 5)
-        self.target_speed = 10.0
+        self.agent_speed = np.random.uniform(0, 2)
+        self.target_speed = 10.0/3.6
         self.relative_distance = np.random.uniform(20, 50)
         self.last_action = 0.5  # Initialize to neutral action
         wandb.log({"episode_reward": self.episode_reward})
@@ -87,7 +87,7 @@ class AdaptiveCruiseControlEnv(gym.Env):
         wandb.log({
             "episode": self.episode,
             "distance": self.relative_distance,
-            "agent_speed": self.agent_speed,
+            "agent_speed": self.agent_speed*3.6,
             "reward": reward,
             "action": action[0]
         })

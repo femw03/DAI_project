@@ -62,12 +62,12 @@ env = DummyVecEnv([create_env])
 num_stacked_frames = 4
 env = VecFrameStack(env, num_stacked_frames)  # Wrap with VecFrameStack
 
-model = SAC.load("/mnt/storage/resultsRL/New_town2_80000", env=env, verbose=1)
+model = SAC.load("/mnt/storage/resultsRL/ContinueOnNewMock_75000", env=env, verbose=1)
 print("loaded: ", model)
 
 obs = env.reset()
 i = 0
-for _ in range(10000):
+for _ in range(5000):
     i += 1
     action, _states = model.predict(obs)
     obs, rewards, dones, infos = env.step(action)

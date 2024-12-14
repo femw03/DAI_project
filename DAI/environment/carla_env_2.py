@@ -8,7 +8,7 @@ import numpy as np
 import wandb
 
 from ..cv import ComputerVisionModuleImp
-from ..simulator import CarlaWorld
+from ..simulator import CarlaWorld, tracker, wrappers
 from ..simulator.extract import (
     find_vehicle_in_front,
     get_current_max_speed,
@@ -109,7 +109,8 @@ class CarlaEnv2(gym.Env):
         crash = has_collided(self.world)
         if crash:
             self.collisionCounter += 1
-        dis = get_distance_to_leading(self.world) > 100
+        #dis = False #get_distance_to_leading(self.world) > 75
+        dis = get_distance_to_leading(self.world) > 50
         terminated = crash or dis
         truncated = False
         info = {}
@@ -122,6 +123,7 @@ class CarlaEnv2(gym.Env):
         # Let's cheat!!!
         # features.is_car_in_front = True
         # features.distance_to_car_in_front = get_distance_to_leading(self.world)
+        
         return (
             features.to_tensor(),
             reward,
@@ -147,23 +149,31 @@ class CarlaEnv2(gym.Env):
         # traffic_light = get_current_affecting_light_state(self.world)
         collision = has_collided(self.world)
         angle = get_steering_angle(self.world)
+        route = [waypoint for waypoint, _ in self.world.local_planner.get_plan()]
+        next_wp_result = tracker.find_next_wp_from(route, min_distance=20)
+        if next_wp_result is not None:
+            angle = wrappers.CarlaVector3D(self.world.car.transform.get_forward_vector()).angle_to(
+                self.world.car.location.vector_to(next_wp_result[0].location)
+            )
         self.visuals.angle = angle
-        # distance_to_car_in_front = find_vehicle_in_front(
-        #     angle,
-        #     object_list,
-        #     width=self.visuals.width,
-        #     threshold=self.visuals.margin,
-        #     correction_factor=self.visuals.correction_factor,
-        #     boost_factor=self.visuals.boost_factor,
-        # )
+        detected_car = find_vehicle_in_front(
+            angle,
+            object_list,
+            width=self.visuals.width,
+            threshold=self.visuals.margin,
+            correction_factor=self.visuals.correction_factor,
+            boost_factor=self.visuals.boost_factor,
+        )
 
         vehicle_in_front = True  # TODO: No car ahead if real world
+        # vehicle_in_front = detected_car  # TODO: No car ahead if real world
         distance_to_car_in_front = get_distance_to_leading(self.world)
+        #distance_to_car_in_front = vehicle_in_front.distance
 
         # Constants
         speed_margin = 0.1 * speed_limit
         safe_distance_margin = 0.25
-        max_safe_distance = 100
+        max_safe_distance = 40
 
         # Default reward
         reward = 0
@@ -226,19 +236,6 @@ class CarlaEnv2(gym.Env):
             lower_bound = safe_distance - safe_distance_margin
             upper_bound = safe_distance + safe_distance_margin
 
-            """if lower_bound <= vehicle_in_front.distance <= upper_bound:
-                safe_distance_reward = 1  # Perfect safe distance
-            elif vehicle_in_front.distance < lower_bound:
-                safe_distance_reward = max(
-                    0, vehicle_in_front.distance / lower_bound
-                )  # Linearly decrease to 0
-            elif vehicle_in_front.distance > upper_bound:
-                safe_distance_reward = max(
-                    0,
-                    1
-                    - (vehicle_in_front.distance - upper_bound)
-                    / (max_safe_distance - upper_bound),
-                )"""
             if lower_bound <= distance_to_car_in_front <= upper_bound:
                 safe_distance_reward = 1  # Perfect safe distance
             elif distance_to_car_in_front < lower_bound:
@@ -253,7 +250,7 @@ class CarlaEnv2(gym.Env):
                     / (max_safe_distance - upper_bound),
                 )
 
-        reward = speed_reward if vehicle_in_front is None else safe_distance_reward
+        reward = speed_reward if not vehicle_in_front else safe_distance_reward
         # reward = speed_reward
         # Ensure reward is in range [0, 1]
         reward = np.clip(reward, 0, 1)
@@ -274,7 +271,7 @@ class CarlaEnv2(gym.Env):
         self.visuals.information = information
 
         objects = [
-            ObjectDTO.from_object(obj, is_relevant=vehicle_in_front == obj)
+            ObjectDTO.from_object(obj, is_relevant=detected_car == obj)
             for obj in object_list
         ]
         self.visuals.detected_objects = objects
