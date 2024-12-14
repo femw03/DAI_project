@@ -142,8 +142,10 @@ class CarlaVector3D:
         if magnitudes == 0:
             return 0
         # Clip to handle numerical precision issues
+        cross = np.cross(self.array, other.array)
+        sign = np.sign(cross[2])  # Or a reference axis in 3D
         cos_theta = np.clip(dot_product / magnitudes, -1.0, 1.0)
-        return math.acos(cos_theta)
+        return sign * math.acos(cos_theta)
 
 
 class CarlaWaypoint:

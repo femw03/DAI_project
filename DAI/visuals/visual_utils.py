@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math as m
 import random
 from dataclasses import dataclass
 from enum import Enum
@@ -11,6 +12,7 @@ from typing import Dict, List, Tuple
 import cv2
 import numpy as np
 
+from ..cv import expected_deviation
 from ..interfaces import BoundingBox, Object, ObjectType
 
 
@@ -122,3 +124,73 @@ def enum_to_color(enum_value: Enum) -> Tuple[int, int, int]:
     red = random.randint(0, 255)
 
     return (blue, green, red)
+
+
+def draw_trajectory_line(
+    image: np.ndarray,
+    depth_information: np.ndarray,
+    angle,
+    correction_factor,
+    boost_factor,
+    margin=600,
+    at_y=0.3,
+    horizon=0.5,
+) -> np.ndarray:
+    image = image.copy()
+    y_count, x_count = depth_information.shape
+    sample_horizon_y_coord = int(y_count - y_count * at_y)
+    horizon_y_coord = int(y_count * horizon)
+    horizon_data = depth_information[sample_horizon_y_coord, :]
+    mean, std = horizon_data.mean(), horizon_data.std()
+    filtered = horizon_data[np.abs(horizon_data - mean) <= 1 * std]
+    distance_to_horizon = filtered.max() * 1000 * 0 + 41.0
+
+    points_to_sample = np.arange(0, y_count - sample_horizon_y_coord)
+
+    def sampler(x):
+        assymptote = y_count - horizon_y_coord
+        measure_point = y_count - sample_horizon_y_coord
+        return distance_to_horizon * (assymptote - measure_point) / (assymptote - x)
+
+    distances = np.array([sampler(point) for point in points_to_sample])
+
+    deviations = np.array(
+        [
+            expected_deviation(point, angle, correction_factor, boost_factor)
+            for point in distances
+        ],
+    )
+    # focal_length = 0.08 / (2 * np.x(np.radians(FOV / 2)))
+    # print(distances[0], distances[len(distances) // 2], distances[-1], warp_factor)
+    for i, data in enumerate(zip(deviations, distances)):
+        deviation, distance = data
+        if m.isnan(deviation):
+            continue
+        x_coord = x_count // 2 + int(deviation)
+        # apparent_size = warp_factor / (warp_factor + distance)
+        h_margin = int(margin / distance)
+        x_min_coord = x_coord - h_margin
+        x_max_coord = x_coord + h_margin
+        if x_coord >= 0 and x_coord < x_count - 1:
+            y_coord = y_count - i - 1
+            image[y_coord, x_coord : min(x_coord + 3, x_count - 1)] = (255, 255, 0)
+
+        if x_max_coord >= 0 and x_max_coord < x_count:
+            y_coord = y_count - i - 1
+            image[y_coord, x_max_coord : min(x_max_coord + 3, x_count - 1)] = (
+                255,
+                255,
+                0,
+            )
+
+        if x_min_coord >= 0 and x_min_coord < x_count:
+            y_coord = y_count - i - 1
+            image[y_coord, x_min_coord : min(x_min_coord + 3, x_count - 1)] = (
+                255,
+                255,
+                0,
+            )
+    image[sample_horizon_y_coord, :] = (255, 255, 0)
+    image[horizon_y_coord, :] = (0, 255, 0)
+
+    return image

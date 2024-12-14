@@ -47,14 +47,20 @@ class CarlaEnv2(gym.Env):
                     1,
                     self.relevant_distance + 10,
                 ]
-            ),dtype=np.float32
+            ),
+            dtype=np.float32,
         )
         # Define actions space
         self.action_space = gym.spaces.Box(
             low=0.0, high=1.0, shape=(1,), dtype=np.float32
         )
 
-        self.feature_extractor = SimpleFeatureExtractor()
+        self.feature_extractor = SimpleFeatureExtractor(
+            margin=self.visuals.margin,
+            width=self.visuals.width,
+            correction_factor=self.visuals.correction_factor,
+            boost_factor=self.visuals.boost_factor,
+        )
 
     def reset(self, seed=None, **kwargs):
         """
@@ -77,7 +83,7 @@ class CarlaEnv2(gym.Env):
         """
         Apply an action and return the new observation, reward, and done.
         """
-            
+
         # print("stepping")
         # Apply action
         action = action[0]
@@ -97,7 +103,7 @@ class CarlaEnv2(gym.Env):
             print("completed nav without crash, finding new route!")
             self.world.start_new_route_from_waypoint()
 
-        crash = has_collided(self.world) 
+        crash = has_collided(self.world)
         if crash:
             self.collisionCounter += 1
         dis = get_distance_to_leading(self.world) > 50
@@ -106,11 +112,13 @@ class CarlaEnv2(gym.Env):
         info = {}
 
         observation = get_perfect_obs(world=self.world)  # TODO replace with cv call
-
+        self.feature_extractor.margin = self.visuals.margin
+        self.feature_extractor.correction_factor = self.visuals.correction_factor
+        self.feature_extractor.boost_factor = self.visuals.boost_factor
         features = self.feature_extractor.extract(observation)
         # Let's cheat!!!
-        features.is_car_in_front = True
-        features.distance_to_car_in_front = get_distance_to_leading(self.world)
+        # features.is_car_in_front = True
+        # features.distance_to_car_in_front = get_distance_to_leading(self.world)
         return (
             features.to_tensor(),
             reward,
@@ -129,14 +137,22 @@ class CarlaEnv2(gym.Env):
                 "made it to destination in time without crash, lets find another route!"
             )
             self.world.start_new_route_from_waypoint()
-        
+
         object_list = get_objects(self.world)
         speed_limit = get_current_max_speed(self.world)
         current_speed = get_current_speed(self.world)
         # traffic_light = get_current_affecting_light_state(self.world)
         collision = has_collided(self.world)
         angle = get_steering_angle(self.world)
-        vehicle_in_front = find_vehicle_in_front(angle, object_list)
+        self.visuals.angle = angle
+        vehicle_in_front = find_vehicle_in_front(
+            angle,
+            object_list,
+            width=self.visuals.width,
+            threshold=self.visuals.margin,
+            correction_factor=self.visuals.correction_factor,
+            boost_factor=self.visuals.boost_factor,
+        )
 
         # Constants
         speed_margin = 0.1 * speed_limit
@@ -217,27 +233,29 @@ class CarlaEnv2(gym.Env):
                 )
 
         reward = speed_reward if vehicle_in_front is None else safe_distance_reward
-        #reward = speed_reward
+        # reward = speed_reward
         # Ensure reward is in range [0, 1]
         reward = np.clip(reward, 0, 1)
 
-
         information = {
-                "speed_reward": speed_reward,
-                "safe_distance_reward": safe_distance_reward,
-                "reward": reward,
-                "speed_limit": speed_limit,
-                "current_speed": current_speed,
-                "collisions": self.collisionCounter,
-            }
+            "speed_reward": speed_reward,
+            "safe_distance_reward": safe_distance_reward,
+            "reward": reward,
+            "speed_limit": speed_limit,
+            "current_speed": current_speed,
+            "collisions": self.collisionCounter,
+            "distance_leading": vehicle_in_front.distance
+            if vehicle_in_front is not None
+            else "None",
+        }
         # Logging for debugging and analysis
         wandb.log(information)
-        #self.visuals.information = information
+        self.visuals.information = information
 
-        """objects = [
-        ObjectDTO.from_object(obj, is_relevant=vehicle_in_front == obj)
+        objects = [
+            ObjectDTO.from_object(obj, is_relevant=vehicle_in_front == obj)
             for obj in object_list
         ]
-        self.visuals.detected_objects = objects"""
+        self.visuals.detected_objects = objects
 
         return reward

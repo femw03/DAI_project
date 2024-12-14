@@ -50,9 +50,13 @@ class SimpleFeatures(AgentFeatures):
 
 
 class SimpleFeatureExtractor(FeatureExtractor):
-    def __init__(self):
+    def __init__(self, width, margin, correction_factor, boost_factor):
         super().__init__()
         self.previous_max_speed = None
+        self.width = width
+        self.margin = margin
+        self.correction_factor = correction_factor
+        self.boost_factor = boost_factor
 
     def extract(self, observation: CarlaObservation) -> SimpleFeatures:
         current_speed = observation.current_speed
@@ -66,7 +70,14 @@ class SimpleFeatureExtractor(FeatureExtractor):
             else:
                 max_speed = self.previous_max_speed
 
-        vehicle_in_front = find_vehicle_in_front(observation.angle, observation.objects)
+        vehicle_in_front = find_vehicle_in_front(
+            observation.angle,
+            observation.objects,
+            width=self.width,
+            threshold=self.margin,
+            correction_factor=self.correction_factor,
+            boost_factor=self.boost_factor,
+        )
         is_vehicle_in_front = vehicle_in_front is not None
         if is_vehicle_in_front:
             distance_to_vehicle_front = vehicle_in_front.distance

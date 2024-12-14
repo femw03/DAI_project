@@ -19,6 +19,7 @@ dependencies = [
     "ray[rllib]>=2.0.0",
     "tensorflow_probability",
     "stable-baselines3>=2.0.0",
+    "pygame-widgets>=1.0.0",
 ]
 
 [dependency-groups]

@@ -2,17 +2,13 @@ version = 1
 requires-python = "==3.8.20"
 resolution-markers = [
     "platform_machine == 'arm64' and platform_system == 'Darwin' and sys_platform == 'darwin' and python_full_version == '3.8.20'",
-    "python_version < '0'",
     "platform_machine == 'aarch64' and platform_system == 'Linux' and sys_platform == 'darwin' and python_full_version == '3.8.20'",
     "(platform_machine != 'aarch64' and platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine == 'aarch64' and platform_system != 'Linux' and sys_platform == 'darwin') or (platform_machine == 'arm64' and platform_system != 'Darwin' and sys_platform == 'darwin')",
     "platform_machine == 'arm64' and platform_system == 'Darwin' and sys_platform == 'win32' and python_full_version == '3.8.20'",
-    "python_version < '0'",
     "platform_machine == 'aarch64' and platform_system == 'Linux' and sys_platform == 'win32' and python_full_version == '3.8.20'",
     "(platform_machine != 'aarch64' and platform_machine != 'arm64' and sys_platform == 'win32') or (platform_machine == 'aarch64' and platform_system != 'Linux' and sys_platform == 'win32') or (platform_machine == 'arm64' and platform_system != 'Darwin' and sys_platform == 'win32')",
     "platform_machine == 'arm64' and platform_system == 'Darwin' and sys_platform == 'linux' and python_full_version == '3.8.20'",
-    "python_version < '0'",
     "platform_machine == 'arm64' and platform_system == 'Darwin' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and python_full_version == '3.8.20'",
-    "python_version < '0'",
     "platform_machine == 'aarch64' and platform_system == 'Linux' and sys_platform == 'linux' and python_full_version == '3.8.20'",
     "platform_machine == 'aarch64' and platform_system == 'Linux' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and python_full_version == '3.8.20'",
     "(platform_machine != 'aarch64' and platform_machine != 'arm64' and sys_platform == 'linux') or (platform_machine == 'aarch64' and platform_system != 'Linux' and sys_platform == 'linux') or (platform_machine == 'arm64' and platform_system != 'Darwin' and sys_platform == 'linux')",
@@ -277,6 +273,7 @@ dependencies = [
     { name = "numpy", marker = "python_full_version == '3.8.20'" },
     { name = "opencv-python", marker = "python_full_version == '3.8.20'" },
     { name = "pygame", marker = "python_full_version == '3.8.20'" },
+    { name = "pygame-widgets", marker = "python_full_version == '3.8.20'" },
     { name = "ray", extra = ["rllib"], marker = "python_full_version == '3.8.20'" },
     { name = "shapely", marker = "python_full_version == '3.8.20'" },
     { name = "stable-baselines3", marker = "python_full_version == '3.8.20'" },
@@ -300,6 +297,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.24.4" },
     { name = "opencv-python", specifier = ">=4.10.0.84" },
     { name = "pygame", specifier = ">=2.6.1" },
+    { name = "pygame-widgets", specifier = ">=1.0.0" },
     { name = "ray", extras = ["rllib"], specifier = ">=2.0.0" },
     { name = "shapely", specifier = ">=2.0.6" },
     { name = "stable-baselines3", specifier = ">=2.0.0" },
@@ -1358,6 +1356,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/af/9e/f4fd29d8a41ef19cbf573a1b0bafc4221aae78f610d307033e1250e1cca3/pygame-2.6.1-cp38-cp38-win32.whl", hash = "sha256:7bffdd3eaf394d9645331d1c3a5df9d782ebcc3c5a78f3b657c7879a828dd111", size = 10255798 },
     { url = "https://files.pythonhosted.org/packages/66/a8/503d52d2a4fe1463207b80661d3fe7793346e515f369abe2c3a6552fec11/pygame-2.6.1-cp38-cp38-win_amd64.whl", hash = "sha256:818b4eaec9c4acb6ac64805d4ca8edd4062bebca77bd815c18739fe2842c97e9", size = 10623008 },
     { url = "https://files.pythonhosted.org/packages/06/56/ea9c785258da9f6da939abe8f961c8ce09a8177524a78f94932fbcb2c5d3/pygame-2.6.1-pp38-pypy38_pp73-macosx_10_9_x86_64.whl", hash = "sha256:b7f9f8e6f76de36f4725175d686601214af362a4f30614b4dae2240198e72e6f", size = 12789119 },
+]
+
+[[package]]
+name = "pygame-widgets"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pygame", marker = "python_full_version == '3.8.20'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9c/6d/a7e14a9a3d6ecd75babaeccb9dcf9d39cb800eec90ac47ec1f1a23e676e4/pygame-widgets-1.0.0.tar.gz", hash = "sha256:c0caa39ba12277edc276da5ed9503ca73d72f1127d3b4d697b40f48ce8db40ac", size = 17557 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/53/c7/91da482aa7bd29e5e6ce0d3e4c118beaee76f20d24fe7f9a87dd4712d381/pygame_widgets-1.0.0-py3-none-any.whl", hash = "sha256:417d2282a0c84041f8b4f62f7bfc84c678bc9ced26480f076a55923437331e2f", size = 24446 },
 ]
 
 [[package]]
