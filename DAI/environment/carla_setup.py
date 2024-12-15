@@ -36,6 +36,7 @@ def setup_carla(visuals: Visuals) -> CarlaWorld:
     world = CarlaWorld(
         view_height=visuals.height,
         view_width=visuals.width,
+        tickrate=15,
         walkers=0,
         cars=0,
         has_lead_car=True,

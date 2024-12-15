@@ -41,9 +41,11 @@ class SimpleFeatures(AgentFeatures):
                 self.current_speed / MAX_SPEED,
                 self.max_speed / MAX_SPEED,
                 1 if self.is_car_in_front else 0,
-                MAX_DISTANCE
+                0
                 if self.distance_to_car_in_front is None
                 else self.distance_to_car_in_front / MAX_DISTANCE,
+                0,
+                0,
             ],
             dtype=torch.float32,
         )
@@ -57,6 +59,7 @@ class SimpleFeatureExtractor(FeatureExtractor):
         self.margin = margin
         self.correction_factor = correction_factor
         self.boost_factor = boost_factor
+        self.previous_distance = 0
 
     def extract(self, observation: CarlaObservation) -> SimpleFeatures:
         current_speed = observation.current_speed
@@ -80,9 +83,10 @@ class SimpleFeatureExtractor(FeatureExtractor):
         )
         is_vehicle_in_front = vehicle_in_front is not None
         if is_vehicle_in_front:
+            self.previous_distance = vehicle_in_front.distance
             distance_to_vehicle_front = vehicle_in_front.distance
         else:
-            distance_to_vehicle_front = None
+            distance_to_vehicle_front = self.previous_distance
         return SimpleFeatures(
             current_speed=current_speed,
             max_speed=max_speed,
