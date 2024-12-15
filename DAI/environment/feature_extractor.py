@@ -69,7 +69,7 @@ class SimpleFeatureExtractor(FeatureExtractor):
             max_speed = observed_max_speed
         else:
             if self.previous_max_speed is None:
-                max_speed = MAX_SPEED
+                max_speed = 30 # MAX_SPEED
             else:
                 max_speed = self.previous_max_speed
 

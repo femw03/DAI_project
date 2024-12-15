@@ -36,6 +36,10 @@ class CarlaEnv2(gym.Env):
         self.episode_reward = 0
         self.episode = 0
         self.detected_distance = 0
+        self.detected_speed_limit = 0
+        self.detected_vehicle = 0
+        # self.wrongSpeedLimitCounter = 0
+        
         self.max_objects = config[
             "max_objects"
         ]  # Maximum number of objects per observation
@@ -83,13 +87,15 @@ class CarlaEnv2(gym.Env):
         self.world.await_next_tick()
         # Set the random seed if provided
         self.feature_extractor.reset()
-        perfect = get_perfect_obs(world=self.world)
+        observation = self.cv.process_data(data=self.world.data)
+        observation.max_speed = get_current_max_speed(self.world)
+        observation.stop_flag = None
 
-        return self.feature_extractor.extract(perfect).to_tensor(), {}
+        self.detected_vehicle = 0
+        self.detected_distance = 0
+        self.detected_speed_limit = 0
 
-    """def set_view_data(data: CarlaData) -> None:
-        visuals.depth_image = data.lidar_data.get_lidar_bytes()
-        visuals.rgb_image = data.rgb_image.get_image_bytes()"""
+        return self.feature_extractor.extract(observation).to_tensor(), {}
         
     def step(self, action):
         """
@@ -119,20 +125,34 @@ class CarlaEnv2(gym.Env):
         if crash:
             self.collisionCounter += 1
         #dis = False #get_distance_to_leading(self.world) > 75
-        dis = get_distance_to_leading(self.world) > 50
-        terminated = crash or dis
+        #dis = get_distance_to_leading(self.world) > 50
+        terminated = crash #or dis
         truncated = False
         info = {}
 
-        observation = get_perfect_obs(world=self.world)  # TODO replace with cv call
+        #observation = get_perfect_obs(world=self.world)  # TODO replace with cv call
         # test TODO
-        #observation = self.cv.process_data(world=self.world)  # TODO replace with cv call
+        observation = self.cv.process_data(data=self.world.data)  # TODO replace with cv call
+        # observation.max_speed = get_current_max_speed(self.world)
+        observation.stop_flag = None # overwrite for basic training!!!
         self.feature_extractor.margin = self.visuals.margin
         self.feature_extractor.correction_factor = self.visuals.correction_factor
         self.feature_extractor.boost_factor = self.visuals.boost_factor
         features = self.feature_extractor.extract(observation)
+        self.detected_speed_limit = features.max_speed 
+        features.max_speed = get_current_max_speed(self.world)
+
+        #if self.detected_speed_limit != features.max_speed:
+            #self.wrongSpeedLimitCounter += 1
+
+        if features.is_car_in_front:
+            self.detected_vehicle = 1
+        else:
+            self.detected_vehicle = 0
 
         self.detected_distance = features.distance_to_car_in_front
+        
+
         # Let's cheat!!!
         # features.is_car_in_front = True
         # features.distance_to_car_in_front = get_distance_to_leading(self.world)
@@ -157,6 +177,10 @@ class CarlaEnv2(gym.Env):
             self.world.start_new_route_from_waypoint()
 
         object_list = get_objects(self.world)
+        # plot cv results not perfect.
+        observation = self.cv.process_data(self.world.data)
+        object_list_imperfect = observation.objects
+
         speed_limit = get_current_max_speed(self.world)
         current_speed = get_current_speed(self.world)
         # traffic_light = get_current_affecting_light_state(self.world)
@@ -171,22 +195,29 @@ class CarlaEnv2(gym.Env):
         self.visuals.angle = angle
         detected_car = find_vehicle_in_front(
             angle,
-            object_list,
+            object_list_imperfect, # now we use cv, would like to see results in simulation.
             width=self.visuals.width,
             threshold=self.visuals.margin,
             correction_factor=self.visuals.correction_factor,
             boost_factor=self.visuals.boost_factor,
         )
 
-        vehicle_in_front = True  # TODO: No car ahead if real world
-        # vehicle_in_front = detected_car  # TODO: No car ahead if real world
-        distance_to_car_in_front = get_distance_to_leading(self.world) - 4
-        #distance_to_car_in_front = vehicle_in_front.distance
-
         # Constants
         speed_margin = 0.1 * speed_limit
         safe_distance_margin = 0.15
         max_safe_distance = 50
+
+        # perfect reward (Leading car)
+        #vehicle_in_front = True  # TODO: No car ahead if real world
+        #distance_to_car_in_front = get_distance_to_leading(self.world) - 4
+
+        # segmentation reward (No Leading Car)
+        if detected_car is not None:
+            vehicle_in_front = True
+            distance_to_car_in_front = detected_car.distance
+        else:
+            vehicle_in_front = False
+            distance_to_car_in_front = max_safe_distance # normally not used but to be safe
 
         # Default reward
         reward = 0
@@ -216,7 +247,7 @@ class CarlaEnv2(gym.Env):
         speed_reward = 0
         max_speed = (speed_limit + speed_margin)  # Example max speed limit for reward scaling
         safe_distance_reward = 0
-        if vehicle_in_front is None:  # No objects in front
+        if not vehicle_in_front:  # No objects in front
             if current_speed == 0:
                 speed_reward = 0  # No reward for being stationary
             elif 0 < current_speed <= speed_limit:
@@ -256,17 +287,24 @@ class CarlaEnv2(gym.Env):
         # Ensure reward is in range [0, 1]
         reward = np.clip(reward, 0, 1)
 
+        # if vehicle_in_front is not None:
+        #     self.detected_vehicle = 1
+        # else:
+        #     self.detected_vehicle = 0
+
         information = {
             "speed_reward": speed_reward,
             "safe_distance_reward": safe_distance_reward,
             "reward": reward,
             "speed_limit": speed_limit,
+            "detected_speed_limit":self.detected_speed_limit,
             "current_speed": current_speed,
             "collisions": self.collisionCounter,
             "distance_to_car_infront": distance_to_car_in_front,
-            "detected_distance": self.detected_distance
-            if vehicle_in_front is not None
-            else "None",
+            "detected_distance": self.detected_distance,
+            "detected_vehicle": self.detected_vehicle
+            # if vehicle_in_front is not None
+            # else "None",
         }
         # Logging for debugging and analysis
         wandb.log(information)
@@ -274,7 +312,7 @@ class CarlaEnv2(gym.Env):
 
         objects = [
             ObjectDTO.from_object(obj, is_relevant=detected_car == obj)
-            for obj in object_list
+            for obj in object_list_imperfect
         ]
         self.visuals.detected_objects = objects
 

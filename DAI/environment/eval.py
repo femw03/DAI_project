@@ -62,19 +62,19 @@ env = DummyVecEnv([create_env])
 num_stacked_frames = 4
 env = VecFrameStack(env, num_stacked_frames)  # Wrap with VecFrameStack
 
-model = SAC.load("/mnt/storage/resultsRL/ContinueOnNewMock_75000", env=env, verbose=1)
+model = SAC.load("/mnt/storage/resultsRL/LeadingCar_cv_perfect2_80000", env=env, verbose=1)
 print("loaded: ", model)
 
 obs = env.reset()
 i = 0
-for _ in range(5000):
+for _ in range(2000):
     i += 1
     action, _states = model.predict(obs)
     obs, rewards, dones, infos = env.step(action)
     # print("observation shape: ", obs.shape)
     if np.any(dones):
         obs = env.reset()
-    print("eval percentage: ", f"{i}/10000 ", 100 * i / 10000, "%")
+    print("eval percentage: ", f"{i}/2000 ", 100 * i / 2000, "%")
 
 # Finish the wandb run
 wandb.finish()
