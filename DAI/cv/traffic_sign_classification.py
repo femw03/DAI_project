@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional
 
-import cv2
 import lightning as L
 import numpy as np
 import torch
@@ -58,7 +57,7 @@ class TrafficSign:
     confidence: float
 
     @staticmethod
-    def speed_limit(traffic_signs: List[TrafficSign]) -> Optional[float]:
+    def cspeed_limit(traffic_signs: List[TrafficSign]) -> Optional[float]:
         """Find the speed limit from the traffic signs"""
         valid_speeds = [
             traffic_sign.type.speed_limit
