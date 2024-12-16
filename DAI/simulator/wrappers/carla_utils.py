@@ -147,6 +147,10 @@ class CarlaVector3D:
         cos_theta = np.clip(dot_product / magnitudes, -1.0, 1.0)
         return sign * math.acos(cos_theta)
 
+    def dot(self, other: CarlaVector3D) -> float:
+        assert isinstance(other, CarlaVector3D)
+        return np.dot(self.array, other.array)
+
 
 class CarlaWaypoint:
     """https://carla.readthedocs.io/en/latest/python_api/#carlawaypoint"""
@@ -208,6 +212,14 @@ class CarlaWaypoint:
     @property
     def location(self) -> CarlaLocation:
         return CarlaLocation.from_native(self.transform.location)
+
+    def is_passed(self, location: CarlaLocation) -> bool:
+        "Determines if a certain location is passed the waypoint"
+        wp_orientation = CarlaVector3D(self.transform.get_forward_vector())
+        to_location = self.location.vector_to(location)
+        dot_product = wp_orientation.dot(to_location)
+        # if dot > 0 means that the angle between < 90 degrees meaning that the location is in front of the waypoint
+        return dot_product > 0
 
 
 class CarlaLaneMarking:
