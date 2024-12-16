@@ -65,7 +65,7 @@ class CarlaWorld(Thread, World):
 
         self.client = CarlaClient(port=port)
         self.world = self.client.world
-        #self.world = self.client.load_world('Town02')
+        #self.world = self.client.load_world('Town04')
         self.traffic_manager = self.client.get_traffic_manager()
         self.global_planner = GlobalRoutePlanner(self.world.map)
 

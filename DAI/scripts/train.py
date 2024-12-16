@@ -80,15 +80,15 @@ def main():
             callback=wandb_callback,
         )
         # Save the model after every `save_frequency` timesteps
-        model.save(f"/mnt/storage/resultsRL/LeadingCar_cv_segmentation_{step + n_steps}")
+        model.save(f"/mnt/storage/resultsRL/Speed_cv_town4_segmentation_{step + n_steps}")
         wandb.save(
-            f"/mnt/storage/resultsRL/LeadingCar_cv_segmentation_{step + n_steps}.zip"
+            f"/mnt/storage/resultsRL/Speed_cv_town4_segmentation_{step + n_steps}.zip"
         )
         print(f"Model saved at step: {step + n_steps}")
 
     # Save the final model
-    model.save("LeadingCar_cv_town4_perfect_final")
-    wandb.save("LeadingCar_cv_town4_perfect_final.zip")
+    model.save("Speed_cv_town4_segmentation_final")
+    wandb.save("Speed_cv_town4_segmentation_final.zip")
 
     # Finish the training wandb run
     wandb.finish()
@@ -116,3 +116,6 @@ if __name__ == "__main__":
 # DAI/scripts/Saves/sac_NewReward_follow_cars1_50000.zip
 # /mnt/storage/resultsRL/Continue_on_mock_10000.zip
 # /mnt/storage/resultsRL/New_town2_80000.zip # seems very good!!!
+
+# Minimum requirements!
+# /mnt/storage/resultsRL/LeadingCar_cv_perfect2_80000.zip # works very well using cv!!!
