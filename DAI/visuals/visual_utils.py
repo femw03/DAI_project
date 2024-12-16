@@ -83,7 +83,7 @@ def add_static_information(image: np.ndarray, data: Dict[str, str]) -> np.ndarra
     cv2.rectangle(
         image,
         (0, 0),
-        (200, rectangle_height),
+        (400, rectangle_height),
         color=(255, 255, 255),
         thickness=cv2.FILLED,
     )

@@ -18,9 +18,9 @@ class AdaptiveCruiseControlEnv(gym.Env):
 
         # Simulation parameters
         self.dt = 0.1
-        self.max_speed = 30.0
+        self.max_speed = 30.0/3.6
         self.min_distance = 10.0
-        self.max_distance = 100.0
+        self.max_distance = 75.0
 
         # Initialize pygame for visualization
         self.screen_width = 800
@@ -34,6 +34,7 @@ class AdaptiveCruiseControlEnv(gym.Env):
         self.screen = None
         self.episode = 0
         self.episode_reward = 0
+        self.target_speed = 10/3.6
         
 
         # Initialize wandb
@@ -47,8 +48,8 @@ class AdaptiveCruiseControlEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.episode += 1
-        self.agent_speed = np.random.uniform(0, 5)
-        self.target_speed = 10.0
+        self.agent_speed = np.random.uniform(0, 2)
+        self.target_speed = 10.0/3.6
         self.current_target_speed = self.target_speed
         self.relative_distance = np.random.uniform(20, 50)
         self.last_action = 0.5  # Initialize to neutral action
@@ -74,7 +75,7 @@ class AdaptiveCruiseControlEnv(gym.Env):
 
         # Update target speed gradually
         if self.time_step_counter % self.target_speed_update_interval == 0:
-            self.target_speed = np.random.uniform(10, 30)
+            self.target_speed = np.random.uniform(10, 30)/3.6
             self.target_speed_update_interval = 250
 
         # Gradually adjust current target speed towards target speed
@@ -86,16 +87,6 @@ class AdaptiveCruiseControlEnv(gym.Env):
 
         self.relative_distance += (self.current_target_speed - self.agent_speed) * self.dt
 
-        # if self.relative_distance <= self.min_distance:
-        #     reward = -2
-        #     terminated = True
-        # elif self.relative_distance < 15.0:
-        #     reward = 1
-        #     terminated = False
-        # else:
-        #     reward = -0.1 * (self.relative_distance / self.max_distance)
-        #     terminated = False
-
         reward = self._get_reward()
 
         self.episode_reward += reward
@@ -106,8 +97,8 @@ class AdaptiveCruiseControlEnv(gym.Env):
         wandb.log({
             "episode": self.episode,
             "distance": self.relative_distance,
-            "agent_speed": self.agent_speed,
-            "target_speed": self.current_target_speed,
+            "agent_speed": self.agent_speed*3.6,
+            "target_speed": self.current_target_speed*3.6,
             "reward": reward,
             "action": action[0]
         })
@@ -175,7 +166,7 @@ class AdaptiveCruiseControlEnv(gym.Env):
  
         # Constants
         safe_distance_margin = 0.25
-        max_safe_distance = 100
+        max_safe_distance = 50
  
         # Default reward
         reward = 0
@@ -184,7 +175,7 @@ class AdaptiveCruiseControlEnv(gym.Env):
         safe_distance_reward = 0
         if current_speed > 1:
             safe_distance = 2 * (
-                current_speed / 3.6
+                current_speed
             )  # Safe distance = 2 seconds of travel in m/s
         else:
             safe_distance = 1
@@ -216,8 +207,8 @@ class AdaptiveCruiseControlEnv(gym.Env):
                 "safe_distance_reward": safe_distance_reward,
                 "safe_distance": safe_distance,
                 "reward": reward,
-                "speed_limit": speed_limit,
-                "current_speed": current_speed
+                "speed_limit": speed_limit*3.6,
+                "current_speed": current_speed*3.6
             }
         )
         return reward

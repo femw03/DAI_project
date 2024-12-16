@@ -1,8 +1,10 @@
 import gymnasium as gym
-from gymnasium import spaces
 import numpy as np
 import pygame
+from gymnasium import spaces
+
 import wandb  # Import wandb
+
 
 class AdaptiveCruiseControlEnv(gym.Env):
     def __init__(self, config={}, render_mode=None):
@@ -16,9 +18,9 @@ class AdaptiveCruiseControlEnv(gym.Env):
 
         # Simulation parameters
         self.dt = 0.1
-        self.max_speed = 30.0
+        self.max_speed = 30.0/3.6
         self.min_distance = 10.0
-        self.max_distance = 100.0
+        self.max_distance = 75.0
 
         # Initialize pygame for visualization
         self.screen_width = 800
@@ -48,8 +50,8 @@ class AdaptiveCruiseControlEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.episode += 1
-        self.agent_speed = np.random.uniform(0, 5)
-        self.target_speed = 10.0
+        self.agent_speed = np.random.uniform(0, 2)
+        self.target_speed = 10.0/3.6
         self.current_target_speed = self.target_speed
         self.relative_distance = np.random.uniform(20, 50)
         self.last_action = 0.5  # Initialize to neutral action
@@ -63,7 +65,6 @@ class AdaptiveCruiseControlEnv(gym.Env):
         self.stop = 0  # Initially no stop
         self.No_stop = False
         self.car_in_front = 1
-        self.max_speed = 30
 
         return np.array([self.agent_speed, self.max_speed, self.car_in_front, self.relative_distance, self.stop, self.distance_to_stop], dtype=np.float32), {}
 
@@ -78,12 +79,16 @@ class AdaptiveCruiseControlEnv(gym.Env):
             throttle_intensity = (action[0] - 0.5) * 2
             self.agent_speed = self.agent_speed + throttle_intensity * 2.0 * self.dt
 
-        if self.agent_speed > self.max_speed + 10:
+        if self.agent_speed > self.max_speed + 10/3.6:
             terminated = True
+
+        # Change speed limit randomly every 260 steps 
+        if self.time_step_counter % 260 == 0: 
+            self.max_speed = np.random.choice([10, 20, 30])/3.6
 
         # Update target speed gradually
         if self.time_step_counter % self.target_speed_update_interval == 0:
-            self.target_speed = np.random.uniform(10, 30)
+            self.target_speed = np.random.uniform(self.max_speed - 5/3.6, self.max_speed + 5/3.6) # TODO: make speed between standstill and speeding
             self.target_speed_update_interval = 250
 
         # Gradually adjust current target speed towards target speed
@@ -107,14 +112,14 @@ class AdaptiveCruiseControlEnv(gym.Env):
 
         self.relative_distance += (self.current_target_speed - self.agent_speed) * self.dt
 
-        # Update distance to stop line if stop flag is set
-        if self.stop == 1:
-            self.distance_to_stop -= self.agent_speed * self.dt
-
         # Introduce random stopping line at least 30m ahead
         if self.time_step_counter % 300 == 0 and np.random.rand() < 0.3:
             self.stop = 1
             self.distance_to_stop = 30 + np.random.uniform(0, 30)  # Ensure stop line is at least 30m ahead
+        
+        # Update distance to stop line if stop flag is set
+        if self.stop == 1:
+            self.distance_to_stop -= self.agent_speed * self.dt
 
         reward = self._get_reward()
 
@@ -128,8 +133,8 @@ class AdaptiveCruiseControlEnv(gym.Env):
         wandb.log({
             "episode": self.episode,
             "distance": self.relative_distance,
-            "agent_speed": self.agent_speed,
-            "target_speed": self.current_target_speed,
+            "agent_speed": self.agent_speed*3.6,
+            "target_speed": self.current_target_speed*3.6,
             "reward": reward,
             "action": action[0],
             "car_in_front": self.car_in_front,
@@ -212,7 +217,7 @@ class AdaptiveCruiseControlEnv(gym.Env):
         
         # Constants
         safe_distance_margin = 0.25
-        max_safe_distance = 100
+        max_safe_distance = 50
 
         # Default reward
         reward = 0
@@ -227,15 +232,13 @@ class AdaptiveCruiseControlEnv(gym.Env):
                 speed_reward = min(1, current_speed / speed_limit)  # Linearly scale up to the speed limit
             elif speed_limit < current_speed < max_speed:
                 speed_reward = max(0, (max_speed - current_speed) / (max_speed - speed_limit))  # Linearly ramp down
-            elif current_speed >= max_speed:
-                speed_reward = 0  # No reward if speed exceeds or equals max_speed
 
         # Safe Distance Reward Calculation
         safe_distance_reward = 0
-        if current_speed > 1:
-            safe_distance = 2 * (current_speed / 3.6)  # Safe distance = 2 seconds of travel in m/s
+        if current_speed > 1/3.6:
+            safe_distance = 2 * current_speed  # Safe distance = 2 seconds of travel in m/s
         else:
-            safe_distance = 4
+            safe_distance = 6
 
         lower_bound = safe_distance - safe_distance_margin
         upper_bound = safe_distance + safe_distance_margin
@@ -259,26 +262,23 @@ class AdaptiveCruiseControlEnv(gym.Env):
                 speed_factor = max(0, 1 - self.agent_speed / self.max_speed) 
                 distance_factor = 1 - min(1, self.distance_to_stop / 30) # Scale down as the distance to stop decreases 
                 stop_reward = 0.5 * distance_factor + 0.5 * speed_factor # Combine distance and speed factors 
-            elif self.distance_to_stop <= 2 and self.agent_speed < 1: 
+            elif self.distance_to_stop <= 2 and self.agent_speed < 1/3.6: 
                 stop_reward = 1 # Reward for stopping at the line 
             
             # If stop flag is ignored (speed is high near stop line), restart the environment 
-            if self.agent_speed > 1 and self.distance_to_stop <= 0.1: 
+            if self.agent_speed > 2/3.6 and self.distance_to_stop <= 0.1: 
                 self.No_stop = True
 
             if self.agent_speed < 0.1:
                 self.stop = 0
 
-        reward = speed_reward + safe_distance_reward + stop_reward
+        # ensure we never speed!!
+        if current_speed <= max_speed:
+            reward = speed_reward + safe_distance_reward + stop_reward
+        else:
+            reward = 0
 
         reward = reward * smooth_driving_reward
-        # Determine the final reward based on conditions
-        """if self.car_in_front == 0 and self.stop == 0:
-            reward = speed_reward * smooth_driving_reward
-        elif self.car_in_front == 1 and self.stop == 0:
-            reward = safe_distance_reward * smooth_driving_reward
-        elif self.stop == 1:
-            reward = stop_reward * smooth_driving_reward"""
 
         # Ensure reward is in range [0, 1]
         reward = np.clip(reward, 0, 1)
@@ -290,8 +290,8 @@ class AdaptiveCruiseControlEnv(gym.Env):
             "stop_reward": stop_reward,
             "smooth_driving_reward": smooth_driving_reward,
             "reward": reward,
-            "speed_limit": speed_limit,
-            "current_speed": current_speed,
+            "speed_limit": speed_limit*3.6,
+            "current_speed": current_speed*3.6,
             "acceleration": acceleration
         })
 

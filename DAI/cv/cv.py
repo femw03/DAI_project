@@ -84,8 +84,8 @@ class ComputerVisionModuleImp(ComputerVisionModule):
             current_speed=data.current_speed,
             max_speed=max_speed,
             stop_flag=current_light,
-            distance_to_pedestrian_crossing=0,  # TODO
-            distance_to_stop=0,  # TODO
-            pedestrian_crossing_flag=False,  # TODO
+            distance_to_pedestrian_crossing=None,  # TODO
+            distance_to_stop=None,  # TODO
+            pedestrian_crossing_flag=None,  # TODO
             angle=0,  # TODO
         )

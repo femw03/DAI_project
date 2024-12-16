@@ -1,8 +1,10 @@
 import gymnasium as gym
-from gymnasium import spaces
 import numpy as np
 import pygame
+from gymnasium import spaces
+
 import wandb  # Import wandb
+
 
 class AdaptiveCruiseControlEnv(gym.Env):
     def __init__(self, config={}, render_mode=None):
@@ -16,9 +18,9 @@ class AdaptiveCruiseControlEnv(gym.Env):
 
         # Simulation parameters
         self.dt = 0.1
-        self.max_speed = 30.0
+        self.max_speed = 30.0/3.6
         self.min_distance = 10.0
-        self.max_distance = 100.0
+        self.max_distance = 75.0
 
         # Initialize pygame for visualization
         self.screen_width = 800
@@ -44,8 +46,8 @@ class AdaptiveCruiseControlEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.episode += 1
-        self.agent_speed = np.random.uniform(0, 5)
-        self.target_speed = 10.0
+        self.agent_speed = np.random.uniform(0, 2)
+        self.target_speed = 10.0/3.6
         self.current_target_speed = self.target_speed
         self.relative_distance = np.random.uniform(20, 50)
         self.last_action = 0.5  # Initialize to neutral action
@@ -70,7 +72,7 @@ class AdaptiveCruiseControlEnv(gym.Env):
 
         # Update target speed gradually
         if self.time_step_counter % self.target_speed_update_interval == 0:
-            self.target_speed = np.random.uniform(10, 30)
+            self.target_speed = np.random.uniform(10, 30)/3.6
             self.target_speed_update_interval = 250
 
         # Gradually adjust current target speed towards target speed
@@ -100,8 +102,8 @@ class AdaptiveCruiseControlEnv(gym.Env):
         wandb.log({
             "episode": self.episode,
             "distance": self.relative_distance,
-            "agent_speed": self.agent_speed,
-            "target_speed": self.current_target_speed,
+            "agent_speed": self.agent_speed*3.6,
+            "target_speed": self.current_target_speed*3.6,
             "reward": reward,
             "action": action[0]
         })
