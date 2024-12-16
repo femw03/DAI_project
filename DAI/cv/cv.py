@@ -105,13 +105,11 @@ class ComputerVisionModuleImp(ComputerVisionModule):
             distance_to_pedestrian_crossing=crossings[0].distance
             if len(crossings) > 0
             else None,
-            distance_to_stop=stop_lines[0].distance
-            if len(stop_lines) > 0
-            else (
-                min(traffic_light_objects, key=lambda obj: obj.distance).distance
-                if len(traffic_light_objects) > 0
-                else None
-            ),
+            distance_to_stop=min(
+                traffic_light_objects, key=lambda obj: obj.distance
+            ).distance
+            if len(traffic_light_objects) > 0
+            else None,
             pedestrian_crossing_flag=len(crossings) > 0,
             angle=data.angle,
         )

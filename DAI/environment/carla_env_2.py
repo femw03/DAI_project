@@ -195,7 +195,7 @@ class CarlaEnv2(gym.Env):
             )
             self.world.start_new_route_from_waypoint()
 
-        object_list = get_objects(self.world)
+        # object_list = get_objects(self.world)
         # plot cv results not perfect.
         observation = self.cv.process_data(self.world.data)
         object_list_imperfect = observation.objects
@@ -326,13 +326,17 @@ class CarlaEnv2(gym.Env):
         reward = np.clip(reward, 0, 1)
 
         # Smoother Driving Reward Calculation
-        acceleration = (current_speed - self.last_speed) # / self.dt
-        smoothness_penalty = min(1.0, np.abs(acceleration) / 10.0)  # Normalized penalty for high acceleration/deceleration
+        acceleration = current_speed - self.last_speed  # / self.dt
+        smoothness_penalty = min(
+            1.0, np.abs(acceleration) / 10.0
+        )  # Normalized penalty for high acceleration/deceleration
         smooth_driving_reward = 1.0 - smoothness_penalty
 
         reward = reward * smooth_driving_reward
 
-        self.last_speed = current_speed # reset value of last speed, used to calculate acceleration!
+        self.last_speed = (
+            current_speed  # reset value of last speed, used to calculate acceleration!
+        )
 
         information = {
             "speed_reward": speed_reward,
