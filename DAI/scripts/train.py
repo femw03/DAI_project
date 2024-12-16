@@ -56,7 +56,7 @@ def main():
     #model = SAC("MlpPolicy", env, verbose=1)
     #print("made model: ", model)
     # Load the previously trained model
-    model = SAC.load("/mnt/storage/resultsRL/LeadingCar_cv_perfect2_80000.zip", env=env, verbose=1)
+    model = SAC.load("/mnt/storage/resultsRL/LeadingCar_cv_perfect_smooth_20000.zip", env=env, verbose=1)
     print("loaded: ", model)
 
     # Define save frequency
@@ -80,15 +80,15 @@ def main():
             callback=wandb_callback,
         )
         # Save the model after every `save_frequency` timesteps
-        model.save(f"/mnt/storage/resultsRL/Speed_cv_town4_segmentation_{step + n_steps}")
+        model.save(f"/mnt/storage/resultsRL/LeadingCar_cv_perfect_smooth2_{step + n_steps}")
         wandb.save(
-            f"/mnt/storage/resultsRL/Speed_cv_town4_segmentation_{step + n_steps}.zip"
+            f"/mnt/storage/resultsRL/LeadingCar_cv_perfect_smooth2_{step + n_steps}.zip"
         )
         print(f"Model saved at step: {step + n_steps}")
 
     # Save the final model
-    model.save("Speed_cv_town4_segmentation_final")
-    wandb.save("Speed_cv_town4_segmentation_final.zip")
+    model.save("LeadingCar_cv_perfect_smooth2_final")
+    wandb.save("LeadingCar_cv_perfect_smooth2_final.zip")
 
     # Finish the training wandb run
     wandb.finish()

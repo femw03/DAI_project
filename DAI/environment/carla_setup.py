@@ -39,7 +39,7 @@ def setup_carla(visuals: Visuals) -> CarlaWorld:
         tickrate=15,
         walkers=0,
         cars=0,
-        has_lead_car=False,
+        has_lead_car=True,
     )
     world.add_listener(lambda data: set_view_data(data, visuals))
 

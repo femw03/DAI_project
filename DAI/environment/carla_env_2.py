@@ -13,7 +13,7 @@ from ..simulator.extract import (
     find_vehicle_in_front,
     get_current_max_speed,
     get_current_speed,
-    # get_distance_to_leading,
+    get_distance_to_leading,
     get_objects,
     get_steering_angle,
     has_collided,
@@ -101,7 +101,10 @@ class CarlaEnv2(gym.Env):
         self.distance_to_stop = 0
         self.last_speed = 0
 
-        return self.feature_extractor.extract(observation).to_tensor(), {}
+        features = self.feature_extractor.extract(observation)
+        features.distance_to_stop = 0
+        features.should_stop = 0
+        return features.to_tensor(), {}
 
     def step(self, action):
         """
@@ -132,8 +135,8 @@ class CarlaEnv2(gym.Env):
         if crash:
             self.collisionCounter += 1
         # dis = False #get_distance_to_leading(self.world) > 75
-        # dis = get_distance_to_leading(self.world) > 50
-        terminated = crash  # or dis
+        dis = get_distance_to_leading(self.world) > 50
+        terminated = crash  or dis
         truncated = False
         info = {}
 
@@ -150,6 +153,8 @@ class CarlaEnv2(gym.Env):
         features = self.feature_extractor.extract(observation)
         self.detected_speed_limit = features.max_speed
         features.max_speed = get_current_max_speed(self.world)
+        features.should_stop = 0
+        features.distance_to_stop = 0
 
         # if self.detected_speed_limit != features.max_speed:
         # self.wrongSpeedLimitCounter += 1
@@ -160,8 +165,10 @@ class CarlaEnv2(gym.Env):
             self.detected_vehicle = 0
 
         self.detected_distance = features.distance_to_car_in_front
-        self.should_stop = features.should_stop
-        self.distance_to_stop = features.distance_to_stop
+        # TODO !!!
+        # self.should_stop = features.should_stop
+        # self.distance_to_stop = features.distance_to_stop
+        
         # Let's cheat!!!
         # features.is_car_in_front = True
         # features.distance_to_car_in_front = get_distance_to_leading(self.world)
@@ -178,6 +185,9 @@ class CarlaEnv2(gym.Env):
         """
         Calculate reward based on the action and the current environment state.
         Reward based on speed and distance, with constraints on safe driving.
+
+        Use get_traffic_light function from carla to determine if he ran de stop! 
+        Do something like, if current speed > 10 at distance < 1 => kill actor!!!
         """
         if self.world.local_planner.done():
             print(
@@ -293,7 +303,7 @@ class CarlaEnv2(gym.Env):
                 safe_distance = 3
 
             lower_bound = safe_distance - safe_distance * (safe_distance_margin - 0.10)
-            upper_bound = safe_distance + safe_distance * (safe_distance_margin - 0.05)
+            upper_bound = safe_distance + safe_distance * (safe_distance_margin - 0.10)
 
             if lower_bound <= distance_to_car_in_front <= upper_bound:
                 safe_distance_reward = 1  # Perfect safe distance

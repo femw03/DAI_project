@@ -63,7 +63,7 @@ class TrafficSign:
         valid_speeds = [
             traffic_sign.type.speed_limit
             for traffic_sign in traffic_signs
-            if traffic_sign.type.speed_limit is not None
+            if traffic_sign.type.speed_limit is not None and traffic_sign.confidence >= 0.6
         ]
         return min(valid_speeds) if len(valid_speeds) != 0 else None
 
