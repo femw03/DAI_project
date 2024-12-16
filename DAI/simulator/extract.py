@@ -12,7 +12,7 @@ from ..interfaces import Object, ObjectType
 from .carla_world import CarlaWorld
 from .numpy_image import NumpyLidar
 from .segmentation import extract_objects
-from .wrappers import CarlaTrafficLightState, CarlaVector3D
+from .wrappers import CarlaTrafficLightState, CarlaVector3D, CarlaWaypoint
 
 
 def get_objects(world: CarlaWorld) -> List[Object]:
@@ -155,7 +155,7 @@ def get_distance_to_leading(world: CarlaWorld):
     return world.car.location.distance_to(world.lead_car.location)
 
 
-def get_distance_to_stop_point(world: CarlaWorld) -> Optional[float]:
+def get_distance_to_stop_point(world: CarlaWorld) -> Optional[CarlaWaypoint]:
     """if a traffic light is affecting the car return the distance to it's supposed stop_point"""
     traffic_light = world.car.current_traffic_light
     if traffic_light is None:
@@ -170,11 +170,12 @@ def get_distance_to_stop_point(world: CarlaWorld) -> Optional[float]:
         for stop_wp in stop_points:
             distance = wp.location.distance_to(stop_wp.location)
             if distance < 0.5:  # If within a meter of the stop point it must coincide
-                return world.car.location.distance_to(stop_wp.location)
+                return stop_wp
 
     # None of the stop points came close enough to the route this might be because the planned route ends
     # prematurely, then we decide that the closest wp must be the waypoint
     distances = [
-        world.car.location.distance_to(stop_wp.location) for stop_wp in stop_points
+        (world.car.location.distance_to(stop_wp.location), stop_wp)
+        for stop_wp in stop_points
     ]
-    return min(distances)
+    return min(distances, key=lambda dist, wp: dist)[1]
