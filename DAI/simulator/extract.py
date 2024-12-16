@@ -153,3 +153,28 @@ def has_completed_navigation(world: CarlaWorld):
 
 def get_distance_to_leading(world: CarlaWorld):
     return world.car.location.distance_to(world.lead_car.location)
+
+
+def get_distance_to_stop_point(world: CarlaWorld) -> Optional[float]:
+    """if a traffic light is affecting the car return the distance to it's supposed stop_point"""
+    traffic_light = world.car.current_traffic_light
+    if traffic_light is None:
+        return None
+    stop_points = traffic_light.stop_points
+    route = [wp for wp, _ in world.local_planner.get_plan()]
+    if len(stop_points) == 0:
+        return None
+    # Problem we need to find the stop point that is on our route
+    # Strategy 1 determine for each waypoint if it comes within 1 meter of the route and at what index
+    for wp in route:
+        for stop_wp in stop_points:
+            distance = wp.location.distance_to(stop_wp.location)
+            if distance < 0.5:  # If within a meter of the stop point it must coincide
+                return world.car.location.distance_to(stop_wp.location)
+
+    # None of the stop points came close enough to the route this might be because the planned route ends
+    # prematurely, then we decide that the closest wp must be the waypoint
+    distances = [
+        world.car.location.distance_to(stop_wp.location) for stop_wp in stop_points
+    ]
+    return min(distances)

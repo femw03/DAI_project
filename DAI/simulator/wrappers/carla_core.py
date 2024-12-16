@@ -330,6 +330,27 @@ class CarlaVehicle(CarlaActor):
     def get_traffic_light_state(self) -> CarlaTrafficLightState:
         return CarlaTrafficLightState.from_native(self.actor.get_traffic_light_state())
 
+    @property
+    def current_traffic_light(self) -> Optional[CarlaTrafficLight]:
+        traffic_light = self.actor.get_traffic_light()
+        return CarlaTrafficLight(traffic_light) if traffic_light is not None else None
+
+
+class CarlaTrafficLight:
+    "A wrapper for: https://carla.readthedocs.io/en/latest/python_api/#carla.TrafficLight"
+
+    def __init__(self, traffic_light: carla.TrafficLight):
+        assert isinstance(traffic_light, carla.TrafficLight)
+        self.traffic_light = traffic_light
+
+    @property
+    def state(self) -> CarlaTrafficLightState:
+        return CarlaTrafficLightState.from_native(self.traffic_light.state)
+
+    @property
+    def stop_points(self) -> List[CarlaWaypoint]:
+        return [CarlaWaypoint(wp) for wp in self.traffic_light.get_stop_waypoints()]
+
 
 class CarlaVehicleControl:
     """A wrapper for: https://carla.readthedocs.io/en/latest/python_api/#carla.VehicleControl"""

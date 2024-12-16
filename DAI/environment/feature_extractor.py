@@ -58,13 +58,21 @@ class SimpleFeatures(AgentFeatures):
 
 
 class SimpleFeatureExtractor(FeatureExtractor):
-    def __init__(self, width, margin, correction_factor, boost_factor):
+    def __init__(
+        self,
+        width,
+        margin,
+        correction_factor,
+        boost_factor,
+        traffic_light_distance_bias: float,
+    ):
         super().__init__()
         self.previous_max_speed = None
         self.width = width
         self.margin = margin
         self.correction_factor = correction_factor
         self.boost_factor = boost_factor
+        self.traffic_light_distance_bias = traffic_light_distance_bias
         self.previous_distance = 0
 
     def extract(self, observation: CarlaObservation) -> SimpleFeatures:
@@ -98,7 +106,10 @@ class SimpleFeatureExtractor(FeatureExtractor):
             max_speed=max_speed,
             is_car_in_front=is_vehicle_in_front,
             distance_to_car_in_front=distance_to_vehicle_front,
-            distance_to_stop=observation.distance_to_stop,
+            distance_to_stop=observation.distance_to_stop
+            - self.traffic_light_distance_bias
+            if observation.distance_to_stop is not None
+            else None,
             should_stop=observation.red_light,
         )
 
