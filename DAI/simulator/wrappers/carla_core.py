@@ -351,6 +351,11 @@ class CarlaTrafficLight:
     def stop_points(self) -> List[CarlaWaypoint]:
         return [CarlaWaypoint(wp) for wp in self.traffic_light.get_stop_waypoints()]
 
+    @property
+    def pole_index(self) -> int:
+        """Returns the index of the pole that identifies it as part of the traffic light group of a junction."""
+        return self.traffic_light.get_pole_index()
+
 
 class CarlaVehicleControl:
     """A wrapper for: https://carla.readthedocs.io/en/latest/python_api/#carla.VehicleControl"""
