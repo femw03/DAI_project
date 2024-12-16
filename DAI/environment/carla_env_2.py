@@ -14,6 +14,7 @@ from ..simulator.extract import (
     get_current_max_speed,
     get_current_speed,
     get_distance_to_leading,
+    get_distance_to_stop_point,
     get_objects,
     get_steering_angle,
     has_collided,
@@ -71,6 +72,7 @@ class CarlaEnv2(gym.Env):
             width=self.visuals.width,
             correction_factor=self.visuals.correction_factor,
             boost_factor=self.visuals.boost_factor,
+            traffic_light_distance_bias=25
         )
         self.should_stop = False
         self.distance_to_stop = 0
@@ -205,6 +207,7 @@ class CarlaEnv2(gym.Env):
         # traffic_light = get_current_affecting_light_state(self.world)
         collision = has_collided(self.world)
         angle = get_steering_angle(self.world)
+        distance_to_stop = get_distance_to_stop_point(self.world)
         route = [waypoint for waypoint, _ in self.world.local_planner.get_plan()]
         next_wp_result = tracker.find_next_wp_from(route, min_distance=20)
         if next_wp_result is not None:

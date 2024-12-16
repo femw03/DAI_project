@@ -57,12 +57,12 @@ class TrafficSign:
     confidence: float
 
     @staticmethod
-    def cspeed_limit(traffic_signs: List[TrafficSign]) -> Optional[float]:
+    def speed_limit(traffic_signs: List[TrafficSign]) -> Optional[float]:
         """Find the speed limit from the traffic signs"""
         valid_speeds = [
             traffic_sign.type.speed_limit
             for traffic_sign in traffic_signs
-            if traffic_sign.type.speed_limit is not None and traffic_sign.confidence >= 0.6
+            if traffic_sign.type.speed_limit is not None and traffic_sign.confidence >= 0.7
         ]
         return min(valid_speeds) if len(valid_speeds) != 0 else None
 
