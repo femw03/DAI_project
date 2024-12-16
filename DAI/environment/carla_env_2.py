@@ -1,10 +1,13 @@
 from typing import Any, Dict
 
 import gymnasium as gym
+
+#import keyboard
 import numpy as np
 
 import wandb
 
+from ..cv import ComputerVisionModuleImp
 from ..simulator import CarlaWorld
 from ..simulator.extract import (
     find_vehicle_in_front,
@@ -106,7 +109,7 @@ class CarlaEnv2(gym.Env):
         crash = has_collided(self.world)
         if crash:
             self.collisionCounter += 1
-        dis = get_distance_to_leading(self.world) > 50
+        dis = get_distance_to_leading(self.world) > 100
         terminated = crash or dis
         truncated = False
         info = {}
@@ -145,14 +148,17 @@ class CarlaEnv2(gym.Env):
         collision = has_collided(self.world)
         angle = get_steering_angle(self.world)
         self.visuals.angle = angle
-        vehicle_in_front = find_vehicle_in_front(
-            angle,
-            object_list,
-            width=self.visuals.width,
-            threshold=self.visuals.margin,
-            correction_factor=self.visuals.correction_factor,
-            boost_factor=self.visuals.boost_factor,
-        )
+        # distance_to_car_in_front = find_vehicle_in_front(
+        #     angle,
+        #     object_list,
+        #     width=self.visuals.width,
+        #     threshold=self.visuals.margin,
+        #     correction_factor=self.visuals.correction_factor,
+        #     boost_factor=self.visuals.boost_factor,
+        # )
+
+        vehicle_in_front = True  # TODO: No car ahead if real world
+        distance_to_car_in_front = get_distance_to_leading(self.world)
 
         # Constants
         speed_margin = 0.1 * speed_limit
@@ -207,18 +213,20 @@ class CarlaEnv2(gym.Env):
         #     if (
         #         abs(obj.angle) <= np.radians(2) and obj.distance != 0
         #     ):  # Object directly in front
-        elif vehicle_in_front.distance <= max_safe_distance:
+        #elif vehicle_in_front.distance <= max_safe_distance and current_speed < speed_limit + speed_margin:
+        
+        elif distance_to_car_in_front <= max_safe_distance and current_speed < speed_limit + speed_margin:
             if current_speed > 1:
                 safe_distance = 2 * (
                     current_speed / 3.6
                 )  # Safe distance = 2 seconds of travel in m/s
             else:
-                safe_distance = 2
+                safe_distance = 6
 
             lower_bound = safe_distance - safe_distance_margin
             upper_bound = safe_distance + safe_distance_margin
 
-            if lower_bound <= vehicle_in_front.distance <= upper_bound:
+            """if lower_bound <= vehicle_in_front.distance <= upper_bound:
                 safe_distance_reward = 1  # Perfect safe distance
             elif vehicle_in_front.distance < lower_bound:
                 safe_distance_reward = max(
@@ -229,6 +237,19 @@ class CarlaEnv2(gym.Env):
                     0,
                     1
                     - (vehicle_in_front.distance - upper_bound)
+                    / (max_safe_distance - upper_bound),
+                )"""
+            if lower_bound <= distance_to_car_in_front <= upper_bound:
+                safe_distance_reward = 1  # Perfect safe distance
+            elif distance_to_car_in_front < lower_bound:
+                safe_distance_reward = max(
+                    0, distance_to_car_in_front / lower_bound
+                )  # Linearly decrease to 0
+            elif distance_to_car_in_front > upper_bound:
+                safe_distance_reward = max(
+                    0,
+                    1
+                    - (distance_to_car_in_front - upper_bound)
                     / (max_safe_distance - upper_bound),
                 )
 
@@ -244,7 +265,7 @@ class CarlaEnv2(gym.Env):
             "speed_limit": speed_limit,
             "current_speed": current_speed,
             "collisions": self.collisionCounter,
-            "distance_leading": vehicle_in_front.distance
+            "distance_leading": distance_to_car_in_front
             if vehicle_in_front is not None
             else "None",
         }

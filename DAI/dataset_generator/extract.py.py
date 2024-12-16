@@ -25,8 +25,8 @@ Use WASD keys for control.
 
 import glob
 import os
-import sys
 import shutil
+import sys
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -41,31 +41,32 @@ except IndexError:
 # -- imports -------------------------------------------------------------------
 # ==============================================================================
 
-import carla
-
-from carla import ColorConverter as cc
-
-import weakref
-import random
-import cv2
-import time
 import argparse
+import random
 import textwrap
+import time
+import weakref
+
+import carla
+import cv2
+from carla import ColorConverter as cc
 
 try:
     import pygame
-    from pygame.locals import K_ESCAPE
-    from pygame.locals import K_SPACE
-    from pygame.locals import KMOD_SHIFT
-    from pygame.locals import K_a
-    from pygame.locals import K_d
-    from pygame.locals import K_s
-    from pygame.locals import K_w
-    from pygame.locals import K_TAB
-    from pygame.locals import K_BACKQUOTE
-    from pygame.locals import K_p
-    from pygame.locals import K_c
-    from pygame.locals import K_l
+    from pygame.locals import (
+        K_BACKQUOTE,
+        K_ESCAPE,
+        K_SPACE,
+        K_TAB,
+        KMOD_SHIFT,
+        K_a,
+        K_c,
+        K_d,
+        K_l,
+        K_p,
+        K_s,
+        K_w,
+    )
 except ImportError:
     raise RuntimeError('cannot import pygame, make sure pygame package is installed')
 

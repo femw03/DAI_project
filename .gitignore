@@ -172,3 +172,5 @@ results/
 **.png
 **.jpg
 
+test_segmentation_image_output.jpg
+uv.lock
