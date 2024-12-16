@@ -9,6 +9,7 @@ class Detection:
     bounding_box: BoundingBox
     counter: int
     currently_seen: bool
+    confidence: float
 
 
 class DetectionStabilizer:
@@ -75,9 +76,8 @@ class DetectionStabilizer:
         for class_label, values in self.tracked_instances.items():
             for detection in values:
                 # Decay confidence
-                current_confidence = detection.counter / self.persistence_frames
                 detections.append(
-                    (class_label, current_confidence, detection.bounding_box)
+                    (class_label, detection.confidence, detection.bounding_box)
                 )
         return detections
 
@@ -121,6 +121,7 @@ class DetectionStabilizer:
             best_match.counter = self.persistence_frames
             best_match.bounding_box = bounding_box  # Update bbox
             best_match.currently_seen = True
+            best_match.confidence = confidence
 
             # Update the instance in tracked instances
             self.tracked_instances[class_label][best_match_idx] = best_match
@@ -132,7 +133,9 @@ class DetectionStabilizer:
         # Observation was also not a candidate
         if result is None or result[0] < self.stability_threshold:
             self.candidates[class_label].append(
-                Detection(bounding_box, counter=1, currently_seen=True)
+                Detection(
+                    bounding_box, counter=1, currently_seen=True, confidence=confidence
+                )
             )
             return None
         best_iou, best_match_idx, best_match = result
@@ -141,6 +144,7 @@ class DetectionStabilizer:
         best_match.counter += 1
         best_match.currently_seen = True
         best_match.bounding_box = bounding_box
+        best_match.confidence = confidence
         # Add new instance if we haven't exceeded max tracked
         return None
 
