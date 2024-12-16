@@ -101,11 +101,27 @@ def add_static_information(image: np.ndarray, data: Dict[str, str]) -> np.ndarra
         y_pos += 15
     return image
 
+# Define the predefined colors for each ObjectType
+PREDEFINED_COLORS = {
+    ObjectType.CAR: (0, 255, 0),          # Green
+    ObjectType.MOTOR_CYCLE: (255, 0, 0),  # Blue
+    ObjectType.BICYLE: (255, 255, 0),     # Cyan
+    ObjectType.BUS: (0, 255, 0),          # Green
+    ObjectType.PEDESTRIAN: (255, 0, 255), # Magenta
+    ObjectType.RIDER: (255, 0, 255),      # Magenta
+    ObjectType.TRAFFIC_LIGHT: (128, 0, 128), # Purple
+    ObjectType.TRAFFIC_SIGN: (0, 165, 255), # Orange
+    ObjectType.TRAIN: (255, 255, 255),    # White
+    ObjectType.TRUCK: (0, 255, 0),        # Green
+    ObjectType.TRAILER: (0, 255, 0),      # Green
+    ObjectType.STOP_LINE: (0, 0, 255),    # Red
+    ObjectType.CROSSING: (0, 0, 255)      # Red
+}
 
-def enum_to_color(enum_value: Enum) -> Tuple[int, int, int]:
+def enum_to_color(enum_value: ObjectType) -> Tuple[int, int, int]:
     """
-    Converts an enum value to a consistent random color for OpenCV.
-    The same enum value will always return the same color.
+    Converts an enum value to a predefined color for OpenCV.
+    The same enum value will always return the same predefined color.
 
     Args:
         enum_value: The enum value to be converted to a color.
@@ -113,17 +129,30 @@ def enum_to_color(enum_value: Enum) -> Tuple[int, int, int]:
     Returns:
         A tuple (B, G, R) representing a color in OpenCV format.
     """
-    # Hash the enum value to ensure consistency
-    hash_object = hashlib.md5(str(enum_value).encode())
-    hash_digest = hash_object.hexdigest()
+    return PREDEFINED_COLORS.get(enum_value, (0, 0, 0))  # Default to black if no predefined color
 
-    # Use the hash to generate consistent random values for B, G, and R
-    random.seed(int(hash_digest, 16))  # Seed with the hash value
-    blue = random.randint(0, 255)
-    green = random.randint(0, 255)
-    red = random.randint(0, 255)
+# def enum_to_color(enum_value: Enum) -> Tuple[int, int, int]:
+#     """
+#     Converts an enum value to a consistent random color for OpenCV.
+#     The same enum value will always return the same color.
 
-    return (blue, green, red)
+#     Args:
+#         enum_value: The enum value to be converted to a color.
+
+#     Returns:
+#         A tuple (B, G, R) representing a color in OpenCV format.
+#     """
+#     # Hash the enum value to ensure consistency
+#     hash_object = hashlib.md5(str(enum_value).encode())
+#     hash_digest = hash_object.hexdigest()
+
+#     # Use the hash to generate consistent random values for B, G, and R
+#     random.seed(int(hash_digest, 16))  # Seed with the hash value
+#     blue = random.randint(0, 255)
+#     green = random.randint(0, 255)
+#     red = random.randint(0, 255)
+
+#     return (blue, green, red)
 
 
 def draw_trajectory_line(
