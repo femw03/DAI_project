@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -28,6 +28,8 @@ class ObjectType(Enum):
     TRAIN = ["train"]
     TRUCK = ["truck"]
     TRAILER = ["trailer"]
+    STOP_LINE = []
+    CROSSING = []
 
     def __init__(self, labels: List[str]):
         self._labels = labels
@@ -50,16 +52,36 @@ class BoundingBox:
     which is fully defined by the x1,x2,y1,y2 parameters
     """
 
-    x1: float
-    x2: float
-    y1: float
-    y2: float
+    x1: int
+    x2: int
+    y1: int
+    y2: int
 
     @staticmethod
     def from_array(array: np.ndarray):
         """Create a bounding box from a xyxy array"""
         assert len(array) == 4
         return BoundingBox(array[0], array[2], array[1], array[3])
+
+    @property
+    def xywh(self) -> List[float]:
+        return [self.x1, self.y1, self.x2 - self.x1, self.y2 - self.y1]
+
+    @property
+    def xyxy(self) -> List[int]:
+        return [self.x1, self.y1, self.x2, self.y2]
+
+    def clip(self, size: Tuple[int, int]) -> BoundingBox:
+        return BoundingBox(
+            np.clip(self.x1, 0, size[1]),
+            np.clip(self.x2, 0, size[1]),
+            np.clip(self.y1, 0, size[0]),
+            np.clip(self.y2, 0, size[0]),
+        )
+
+    @property
+    def count(self) -> int:
+        return (self.x2 - self.x1) * (self.y2 - self.y1)
 
 
 @dataclass
@@ -91,6 +113,7 @@ class CarlaData:
     lidar_data: Lidar
     current_speed: float
     time_stamp: datetime
+    angle: float
 
 
 ### Carla Features ###
@@ -105,7 +128,7 @@ class CarlaObservation:
     current_speed: float
     angle: float
     max_speed: Optional[float]
-    stop_flag: bool
+    red_light: bool
     distance_to_stop: Optional[float]
     pedestrian_crossing_flag: bool
     distance_to_pedestrian_crossing: Optional[float]

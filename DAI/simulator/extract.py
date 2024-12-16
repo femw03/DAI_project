@@ -119,7 +119,7 @@ def find_vehicle_in_front(
         )
         for vehicle in vehicles
     ]
-    margins = [(threshold / vehicle.distance) for vehicle in vehicles]
+    margins = [(threshold / (vehicle.distance + 2)) for vehicle in vehicles]
     vehicle_x_coords = [
         (vehicle.boundingBox.x2 - vehicle.boundingBox.x1) // 2 + vehicle.boundingBox.x1
         for vehicle in vehicles

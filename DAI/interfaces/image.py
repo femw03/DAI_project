@@ -1,6 +1,7 @@
 """Abstract implementation agnostic definition for images and depth information"""
 
 from abc import ABC, abstractmethod
+from typing import Tuple
 
 import numpy as np
 
@@ -21,6 +22,10 @@ class Image(ABC):
         Returns:
             np.ndarray: a array representing the image
         """
+        pass
+
+    @abstractmethod
+    def shape(self) -> Tuple[int, int]:
         pass
 
 

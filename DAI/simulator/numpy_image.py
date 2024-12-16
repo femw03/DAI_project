@@ -17,6 +17,9 @@ class NumpyImage(Image):
     ) -> np.ndarray:
         return self.data
 
+    def shape(self):
+        return self.data.shape[:-1]
+
 
 class NumpyLidar(Lidar):
     """Save an Lidar as a (width, height, 3) image"""

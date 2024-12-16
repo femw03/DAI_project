@@ -10,6 +10,8 @@ from ..interfaces import (
     ObjectType,
 )
 from .object_detection import big_object_detection
+from .road_marker_detection import detect_road_markers
+from .stabilizer import DetectionStabilizer
 from .traffic_light_detection import TrafficLight, detect_traffic_lights
 from .traffic_sign_classification import TrafficSign, TrafficSignClassifier
 
@@ -34,10 +36,17 @@ class ComputerVisionModuleImp(ComputerVisionModule):
 
         # Load big net
         self.big_net = YOLO(os.path.join(current_dir, "big_net.pt"), task="detect")
-
+        self.big_tracker = DetectionStabilizer()
         # Load traffic light detection
         self.traffic_light_net = YOLO(
             os.path.join(current_dir, "traffic_light.pt"), task="detect"
+        )
+        self.traffic_light_stabalizer = DetectionStabilizer(
+            min_detections=2, persistence_frames=5, stability_threshold=0.2
+        )
+
+        self.road_marker_net = YOLO(
+            os.path.join(current_dir, "road_markers.pt"), task="detect"
         )
 
         # Load traffic sign classifier
@@ -53,7 +62,7 @@ class ComputerVisionModuleImp(ComputerVisionModule):
 
     def process_data(self, data: CarlaData) -> CarlaObservation:
         # Use the big net to detect objects generally
-        detected = big_object_detection(self.big_net, data)
+        detected = big_object_detection(self.big_net, data, self.big_tracker)
 
         # Use the traffic sign classifier to get more details about the traffic signs
         traffic_signs = [
@@ -69,23 +78,40 @@ class ComputerVisionModuleImp(ComputerVisionModule):
         )
         max_speed = TrafficSign.speed_limit(traffic_signs)
 
-        traffic_lights = [
-            detected_object
-            for detected_object in detected
-            if detected_object.type == ObjectType.TRAFFIC_LIGHT
+        lights, traffic_light_objects = detect_traffic_lights(
+            self.traffic_light_net, self.traffic_light_stabalizer, data
+        )
+        current_light = TrafficLight.should_stop(lights)
+        detected = [obj for obj in detected if obj.type != ObjectType.TRAFFIC_LIGHT]
+        detected.extend(traffic_light_objects)
+        road_markers = detect_road_markers(self.road_marker_net, data=data)
+        detected.extend(road_markers)
+        stop_lines = [
+            road_marker
+            for road_marker in road_markers
+            if road_marker.type == ObjectType.STOP_LINE
         ]
-        current_light = None
-        if len(traffic_lights) != 0:
-            lights = detect_traffic_lights(self.traffic_light_net, data.rgb_image)
-            current_light = TrafficLight.should_stop(lights)
+        crossings = [
+            road_marker
+            for road_marker in road_markers
+            if road_marker.type == ObjectType.CROSSING
+        ]
 
         return CarlaObservation(
             objects=detected,
             current_speed=data.current_speed,
             max_speed=max_speed,
-            stop_flag=current_light,
-            distance_to_pedestrian_crossing=None,  # TODO
-            distance_to_stop=None,  # TODO
-            pedestrian_crossing_flag=None,  # TODO
-            angle=0,  # TODO
+            red_light=current_light,
+            distance_to_pedestrian_crossing=crossings[0].distance
+            if len(crossings) > 0
+            else None,
+            distance_to_stop=stop_lines[0].distance
+            if len(stop_lines) > 0
+            else (
+                min(traffic_light_objects, key=lambda obj: obj.distance).distance
+                if len(traffic_light_objects) > 0
+                else None
+            ),
+            pedestrian_crossing_flag=len(crossings) > 0,
+            angle=data.angle,
         )

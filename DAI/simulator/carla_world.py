@@ -65,7 +65,7 @@ class CarlaWorld(Thread, World):
 
         self.client = CarlaClient(port=port)
         self.world = self.client.world
-        #self.world = self.client.load_world('Town04')
+        # self.world = self.client.load_world('Town04')
         self.traffic_manager = self.client.get_traffic_manager()
         self.global_planner = GlobalRoutePlanner(self.world.map)
 
@@ -169,8 +169,10 @@ class CarlaWorld(Thread, World):
         self.local_planner = LocalPlanner(self.car, self.world.delta_seconds)
         # route = self.generate_new_route()
         route = None
-        while route is None:    
-            location = CarlaLocation.from_native(random.choice(self.world.map.spawn_points).location)
+        while route is None:
+            location = CarlaLocation.from_native(
+                random.choice(self.world.map.spawn_points).location
+            )
             route = self.generate_new_route(location)
         self.local_planner.set_global_plan(route)
         self.car.transform = route[0][0].transform
@@ -222,6 +224,15 @@ class CarlaWorld(Thread, World):
 
                 if self.rgb_image is not None and self.depth_image is not None:
                     # logger.debug("Sending an observation")
+                    angle = self.get_steering_angle()
+                    route = [waypoint for waypoint, _ in self.local_planner.get_plan()]
+                    next_wp_result = find_next_wp_from(route, min_distance=20)
+                    if next_wp_result is not None:
+                        angle = CarlaVector3D(
+                            self.car.transform.get_forward_vector()
+                        ).angle_to(
+                            self.car.location.vector_to(next_wp_result[0].location)
+                        )
                     self._set_data(
                         CarlaData(
                             rgb_image=NumpyImage(self.rgb_image, self.view_FOV),
@@ -232,6 +243,7 @@ class CarlaWorld(Thread, World):
                             ),
                             current_speed=self.car.velocity.magnitude,
                             time_stamp=now,
+                            angle=angle,
                         )
                     )
 
@@ -331,7 +343,7 @@ class CarlaWorld(Thread, World):
         while next_wp_result is None:
             if loop_count > 20:
                 self.reset()
-                return 
+                return
             new_route = self.generate_new_route(
                 CarlaLocation.from_native(start.location),
             )
@@ -351,3 +363,13 @@ class CarlaWorld(Thread, World):
             0,
             0,
         )
+
+    def get_steering_angle(self) -> float:
+        if len(self.local_planner.get_plan()) == 0:
+            return 0
+        next_wp, _ = self.local_planner.get_plan()[0]
+        next_location = next_wp.location
+        current_location = self.car.location
+        desired_direction_vector = current_location.vector_to(next_location)
+        car_forward_vector = CarlaVector3D(self.car.transform.get_forward_vector())
+        return car_forward_vector.angle_to(desired_direction_vector)
