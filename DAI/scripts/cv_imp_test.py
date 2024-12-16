@@ -14,7 +14,11 @@ from ..cv import ComputerVisionModuleImp
 from ..interfaces import CarlaData, ObjectType
 from ..simulator import NumpyImage, NumpyLidar
 from ..utils import timeit
-from ..visuals.visual_utils import add_object_information, add_static_information
+from ..visuals.visual_utils import (
+    ObjectDTO,
+    add_object_information,
+    add_static_information,
+)
 
 
 def main(image_path: str) -> None:
@@ -28,6 +32,7 @@ def main(image_path: str) -> None:
         lidar_data=NumpyLidar(
             np.random.random(image.shape[:2]), 90, lambda x: x * 1000
         ),
+        time_stamp=0,
         current_speed=0,
     )
     cv = ComputerVisionModuleImp()
@@ -40,8 +45,17 @@ def main(image_path: str) -> None:
     result, time = timeit(lambda: cv.process_data(data))
     logger.info(f"Finished in {time:.3}s")
     logger.debug(result)
-    image_with_bb = add_object_information(image, result.objects)
-    image_with_static = add_static_information(image_with_bb, result, time)
+    image_with_bb = add_object_information(
+        image, [ObjectDTO.from_object(obj, False) for obj in result.objects]
+    )
+    information = {
+        "current speed": result.current_speed,
+        "max speed": result.max_speed,
+        "stop flag": result.red_light,
+        "process time": time,
+        # "angle": angle,
+    }
+    image_with_static = add_static_information(image_with_bb, information)
 
     logger.info("Writing result to out.png")
     cv2.imwrite("out.png", image_with_static)

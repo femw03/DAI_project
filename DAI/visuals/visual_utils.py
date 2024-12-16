@@ -168,7 +168,7 @@ def draw_trajectory_line(
             continue
         x_coord = x_count // 2 + int(deviation)
         # apparent_size = warp_factor / (warp_factor + distance)
-        h_margin = int(margin / distance)
+        h_margin = int(margin / (distance + 2))
         x_min_coord = x_coord - h_margin
         x_max_coord = x_coord + h_margin
         if x_coord >= 0 and x_coord < x_count - 1:

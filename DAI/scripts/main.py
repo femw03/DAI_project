@@ -22,17 +22,14 @@ from ..simulator.extract import (
     get_current_max_speed,
     get_current_speed,
     get_objects,
-    get_steering_angle,
 )
-from ..simulator.tracker import find_next_wp_from
-from ..simulator.wrappers import CarlaVector3D
 from ..utils import timeit
 from ..visuals import ObjectDTO, Visuals
 
 
 class MockCruiseControlAgent(CruiseControlAgent):
     def get_action(self, state: CarlaObservation) -> float:
-        return 0.82
+        return 0.85
 
 
 logger.remove()
@@ -47,9 +44,10 @@ agent = MockCruiseControlAgent()
 world = CarlaWorld(
     view_height=visuals.height,
     view_width=visuals.width,
-    cars=80,
-    walkers=0,
+    cars=10,
+    walkers=50,
     has_lead_car=True,
+    tickrate=20,
 )
 
 
@@ -86,15 +84,8 @@ while is_running:
         time.sleep(0)  # yield thread
         continue  # refetch data
     features, process_time = timeit(lambda: cv.process_data(data))
-    angle = get_steering_angle(world)
-    route = [waypoint for waypoint, _ in world.local_planner.get_plan()]
-    next_wp_result = find_next_wp_from(route, min_distance=20)
-    if next_wp_result is not None:
-        angle = CarlaVector3D(world.car.transform.get_forward_vector()).angle_to(
-            world.car.location.vector_to(next_wp_result[0].location)
-        )
     vehicle_in_front = find_vehicle_in_front(
-        angle,
+        data.angle,
         features.objects,
         width=visuals.width,
         correction_factor=visuals.correction_factor,
@@ -110,12 +101,12 @@ while is_running:
     information = {
         "current speed": features.current_speed,
         "max speed": features.max_speed,
-        "stop flag": features.stop_flag,
+        "stop flag": features.red_light,
         "process time": process_time,
-        "angle": angle,
+        "angle": data.angle,
     }
     visuals.information = information
-    visuals.angle = angle
+    visuals.angle = data.angle
     action = agent.get_action(features)
     world.set_speed(action)
     world.await_next_tick()

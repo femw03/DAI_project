@@ -87,8 +87,8 @@ class Visuals(Thread):
         self.visuals_type = VisualType.RGB
         self.display_object_information: bool = False
         self.angle = 0
-        self.correction_factor = 0.17
-        self.boost_factor = 32
+        self.correction_factor = 0.109
+        self.boost_factor = 45
         self.margin = 845
         self.horizon_factor = 0.48
 
