@@ -38,6 +38,7 @@ class CarlaEnv2(gym.Env):
         self.detected_distance = 0
         self.detected_speed_limit = 0
         self.detected_vehicle = 0
+        self.last_speed = 0
         # self.wrongSpeedLimitCounter = 0
 
         self.max_objects = config[
@@ -98,6 +99,8 @@ class CarlaEnv2(gym.Env):
         self.detected_speed_limit = 0
         self.should_stop = False
         self.distance_to_stop = 0
+        self.last_speed = 0
+
         return self.feature_extractor.extract(observation).to_tensor(), {}
 
     def step(self, action):
@@ -312,10 +315,14 @@ class CarlaEnv2(gym.Env):
         # Ensure reward is in range [0, 1]
         reward = np.clip(reward, 0, 1)
 
-        # if vehicle_in_front is not None:
-        #     self.detected_vehicle = 1
-        # else:
-        #     self.detected_vehicle = 0
+        # Smoother Driving Reward Calculation
+        acceleration = (current_speed - self.last_speed) # / self.dt
+        smoothness_penalty = min(1.0, np.abs(acceleration) / 10.0)  # Normalized penalty for high acceleration/deceleration
+        smooth_driving_reward = 1.0 - smoothness_penalty
+
+        reward = reward * smooth_driving_reward
+
+        self.last_speed = current_speed # reset value of last speed, used to calculate acceleration!
 
         information = {
             "speed_reward": speed_reward,
@@ -328,6 +335,7 @@ class CarlaEnv2(gym.Env):
             "distance_to_car_infront": distance_to_car_in_front,
             "detected_distance": self.detected_distance,
             "detected_vehicle": self.detected_vehicle,
+            "smoothness_scale": smooth_driving_reward,
             "should_stop": self.should_stop,
             "distance_to_stop": self.distance_to_stop,
             "action_taken": self.action_taken,
