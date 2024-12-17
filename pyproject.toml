@@ -1,0 +1,31 @@
+[project]
+name = "dai"
+version = "0.1.0"
+description = "Distributed AI project of group 2. Combining Computer vision and machine learning to make a automated speed control"
+readme = "README.md"
+requires-python = "==3.8.20"
+dependencies = [
+    "carla>=0.9.15",
+    "ipykernel>=6.29.5",
+    "lightning>=2.3.3",
+    "loguru>=0.7.2",
+    "numpy>=1.24.4",
+    "opencv-python>=4.10.0.84",
+    "pygame>=2.6.1",
+    "shapely>=2.0.6",
+    "ultralytics>=8.3.29",
+    "wandb>=0.18.7",
+    "gymnasium==1.0.0",
+    "ray[rllib]>=2.0.0",
+    "tensorflow_probability",
+    "stable-baselines3>=2.0.0",
+    "pygame-widgets>=1.0.0",
+    "keyboard>=0.13.5",
+    "snakeviz>=2.2.1",
+    "optuna>=4.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.3",
+]
