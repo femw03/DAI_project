@@ -106,8 +106,7 @@ class SimpleFeatureExtractor(FeatureExtractor):
             max_speed=max_speed,
             is_car_in_front=is_vehicle_in_front,
             distance_to_car_in_front=distance_to_vehicle_front,
-            distance_to_stop=observation.distance_to_stop
-            - self.traffic_light_distance_bias
+            distance_to_stop=observation.distance_to_stop - self.traffic_light_distance_bias
             if observation.distance_to_stop is not None
             else None,
             should_stop=observation.red_light,

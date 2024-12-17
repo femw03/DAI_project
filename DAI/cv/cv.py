@@ -89,12 +89,12 @@ class ComputerVisionModuleImp(ComputerVisionModule):
         stop_lines = [
             road_marker
             for road_marker in road_markers
-            if road_marker.type == ObjectType.STOP_LINE
+            if road_marker.type == ObjectType.STOP_LINE and road_marker.confidence >= 0.5
         ]
         crossings = [
             road_marker
             for road_marker in road_markers
-            if road_marker.type == ObjectType.CROSSING
+            if road_marker.type == ObjectType.CROSSING and road_marker.confidence >= 0.5
         ]
 
         return CarlaObservation(

@@ -15,7 +15,7 @@ from enum import IntEnum
 from typing import Deque, List, Tuple
 
 from ..carla_core import CarlaVehicle, CarlaVehicleControl
-from ..carla_utils import CarlaWaypoint
+from ..carla_utils import CarlaLocation, CarlaWaypoint
 from .controller import VehiclePIDController
 
 
@@ -217,13 +217,13 @@ class LocalPlanner(object):
         """Returns the current plan of the local planner"""
         return self._waypoints_queue
 
-    def done(self):
+    def done(self, location: CarlaLocation):
         """
         Returns whether or not the planner has finished
 
         :return: boolean
         """
-        return len(self._waypoints_queue) == 0
+        return self._waypoints_queue[-1][0].location.distance_to(location) < 25
 
 
 def _retrieve_options(

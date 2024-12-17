@@ -12,7 +12,12 @@ from ..interfaces import Object, ObjectType
 from .carla_world import CarlaWorld
 from .numpy_image import NumpyLidar
 from .segmentation import extract_objects
-from .wrappers import CarlaTrafficLightState, CarlaVector3D, CarlaWaypoint
+from .wrappers import (
+    CarlaTrafficLight,
+    CarlaTrafficLightState,
+    CarlaVector3D,
+    CarlaWaypoint,
+)
 
 
 def get_objects(world: CarlaWorld) -> List[Object]:
@@ -63,14 +68,6 @@ def get_current_max_speed(world: CarlaWorld) -> float:
 def get_current_speed(world: CarlaWorld) -> float:
     """Get the current speed of the vehicle"""
     return world.car.velocity.magnitude * 3.6
-
-
-def get_current_affecting_light_state(world: CarlaWorld) -> CarlaTrafficLightState:
-    """
-    Get the state of the traffic light that is affecting the vehicle,
-    If no lights are affecting the car the state will be green.
-    """
-    return world.car.get_traffic_light_state
 
 
 def has_collided(world: CarlaWorld) -> bool:
@@ -148,18 +145,15 @@ def find_vehicle_in_front(
 
 
 def has_completed_navigation(world: CarlaWorld):
-    return world.local_planner.done()
+    return world.local_planner.done(world.car.location)
 
 
 def get_distance_to_leading(world: CarlaWorld):
     return world.car.location.distance_to(world.lead_car.location)
 
 
-def get_distance_to_stop_point(world: CarlaWorld) -> Optional[CarlaWaypoint]:
+def get_stop_point(world: CarlaWorld, traffic_light: CarlaTrafficLight) -> Optional[CarlaWaypoint]:
     """if a traffic light is affecting the car return the distance to it's supposed stop_point"""
-    traffic_light = world.car.current_traffic_light
-    if traffic_light is None:
-        return None
     stop_points = traffic_light.stop_points
     route = [wp for wp, _ in world.local_planner.get_plan()]
     if len(stop_points) == 0:
@@ -178,4 +172,17 @@ def get_distance_to_stop_point(world: CarlaWorld) -> Optional[CarlaWaypoint]:
         (world.car.location.distance_to(stop_wp.location), stop_wp)
         for stop_wp in stop_points
     ]
-    return min(distances, key=lambda dist, wp: dist)[1]
+    return min(distances, key=lambda dist: dist[0])[1]
+
+
+def get_affecting_traffic_lightV2(world: CarlaWorld, traffic_lights: List[CarlaTrafficLight], route: List[CarlaWaypoint]) -> Optional[CarlaTrafficLight]:
+    for waypoint in route:
+        for traffic_light in traffic_lights:
+            for affected_waypoint in traffic_light.affected_waypoints:
+                distance = world.car.location.distance_to(affected_waypoint.location)
+                if distance > 40: 
+                    break
+                delta = waypoint.location.distance_to(affected_waypoint.location)
+                if delta < 0.5:
+                    return traffic_light
+    return None

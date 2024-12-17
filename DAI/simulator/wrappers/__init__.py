@@ -15,6 +15,7 @@ from .carla_core import (  # noqa: F401
     CarlaActor,
     CarlaCollisionEvent,
     CarlaImage,
+    CarlaTrafficLight,
     CarlaTrafficLightState,
     CarlaVehicle,
     CarlaWalker,

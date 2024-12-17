@@ -136,6 +136,10 @@ class CarlaWorld:
         settings.synchronous_mode = value
         self.settings = settings
 
+    def get_actors(self, filter: str) -> List[CarlaActor]:
+        actors = self.world.get_actors().filter(filter)
+        return [CarlaActor(actor,self) for actor in actors]
+
 
 class CarlaMap:
     """Wrapper class around carla.Map"""
@@ -336,10 +340,11 @@ class CarlaVehicle(CarlaActor):
         return CarlaTrafficLight(traffic_light) if traffic_light is not None else None
 
 
-class CarlaTrafficLight:
+class CarlaTrafficLight(CarlaActor):
     "A wrapper for: https://carla.readthedocs.io/en/latest/python_api/#carla.TrafficLight"
 
-    def __init__(self, traffic_light: carla.TrafficLight):
+    def __init__(self, traffic_light: carla.TrafficLight, world: CarlaWorld):
+        super().__init__(traffic_light, world)
         assert isinstance(traffic_light, carla.TrafficLight)
         self.traffic_light = traffic_light
 
@@ -356,6 +361,14 @@ class CarlaTrafficLight:
         """Returns the index of the pole that identifies it as part of the traffic light group of a junction."""
         return self.traffic_light.get_pole_index()
 
+    @staticmethod
+    def all(world: CarlaWorld) -> List[CarlaTrafficLight]:
+        return [CarlaTrafficLight(actor.actor, world) for actor in world.get_actors('traffic.traffic_light')]
+    
+    @property
+    def affected_waypoints(self) -> List[CarlaWaypoint]:
+        waypoints = self.actor.get_affected_lane_waypoints()
+        return [CarlaWaypoint(waypoint) for waypoint in waypoints]
 
 class CarlaVehicleControl:
     """A wrapper for: https://carla.readthedocs.io/en/latest/python_api/#carla.VehicleControl"""
