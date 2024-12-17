@@ -174,3 +174,4 @@ results/
 
 test_segmentation_image_output.jpg
 uv.lock
+!DAI/environment/models/agent_best.zip
