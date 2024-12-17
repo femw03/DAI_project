@@ -180,7 +180,7 @@ def get_affecting_traffic_lightV2(world: CarlaWorld, traffic_lights: List[CarlaT
         for traffic_light in traffic_lights:
             for affected_waypoint in traffic_light.affected_waypoints:
                 distance = world.car.location.distance_to(affected_waypoint.location)
-                if distance > 40: 
+                if distance > 50: 
                     break
                 delta = waypoint.location.distance_to(affected_waypoint.location)
                 if delta < 0.5:

@@ -357,7 +357,7 @@ class CarlaWorld(Thread, World):
             self.lead_car.autopilot = True
             self.traffic_manager.set_path(self.lead_car, locations)
         self.local_planner.set_global_plan(new_route)
-        self.car.transform = self.local_planner.get_plan().popleft()[0].transform
+        self.car.transform = self.local_planner.get_plan()[0][0].transform
         self.car.velocity = CarlaVector3D.fromxyz(
             0,
             0,

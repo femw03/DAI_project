@@ -42,7 +42,7 @@ class ComputerVisionModuleImp(ComputerVisionModule):
             os.path.join(current_dir, "traffic_light.pt"), task="detect"
         )
         self.traffic_light_stabalizer = DetectionStabilizer(
-            min_detections=2, persistence_frames=5, stability_threshold=0.2
+            min_detections=1, persistence_frames=5, stability_threshold=0.1
         )
 
         self.road_marker_net = YOLO(
