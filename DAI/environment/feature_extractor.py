@@ -6,7 +6,7 @@ from typing import Optional
 
 import torch
 
-from ..interfaces import AgentFeatures, CarlaObservation, FeatureExtractor
+from ..interfaces import AgentFeatures, CarlaObservation, FeatureExtractor, Object
 from ..simulator import CarlaWorld, tracker, wrappers
 from ..simulator.extract import (
     find_vehicle_in_front,
@@ -74,6 +74,7 @@ class SimpleFeatureExtractor(FeatureExtractor):
         self.boost_factor = boost_factor
         self.traffic_light_distance_bias = traffic_light_distance_bias
         self.previous_distance = 0
+        self.vehicle_in_front: Optional[Object] = None
 
     def extract(self, observation: CarlaObservation) -> SimpleFeatures:
         current_speed = observation.current_speed
@@ -87,7 +88,7 @@ class SimpleFeatureExtractor(FeatureExtractor):
             else:
                 max_speed = self.previous_max_speed
 
-        vehicle_in_front = find_vehicle_in_front(
+        self.vehicle_in_front = find_vehicle_in_front(
             observation.angle,
             observation.objects,
             width=self.width,
@@ -95,10 +96,10 @@ class SimpleFeatureExtractor(FeatureExtractor):
             correction_factor=self.correction_factor,
             boost_factor=self.boost_factor,
         )
-        is_vehicle_in_front = vehicle_in_front is not None
+        is_vehicle_in_front = self.vehicle_in_front is not None
         if is_vehicle_in_front:
-            self.previous_distance = vehicle_in_front.distance
-            distance_to_vehicle_front = vehicle_in_front.distance
+            self.previous_distance = self.vehicle_in_front.distance
+            distance_to_vehicle_front = self.vehicle_in_front.distance
         else:
             distance_to_vehicle_front = self.previous_distance
         return SimpleFeatures(
@@ -106,7 +107,8 @@ class SimpleFeatureExtractor(FeatureExtractor):
             max_speed=max_speed,
             is_car_in_front=is_vehicle_in_front,
             distance_to_car_in_front=distance_to_vehicle_front,
-            distance_to_stop=observation.distance_to_stop - self.traffic_light_distance_bias
+            distance_to_stop=observation.distance_to_stop
+            - self.traffic_light_distance_bias
             if observation.distance_to_stop is not None
             else None,
             should_stop=observation.red_light,

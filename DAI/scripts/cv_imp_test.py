@@ -13,7 +13,7 @@ from loguru import logger
 from ..cv import ComputerVisionModuleImp
 from ..interfaces import CarlaData, ObjectType
 from ..simulator import NumpyImage, NumpyLidar
-from ..utils import timeit, timeit_n
+from ..utils import timeit_n
 from ..visuals.visual_utils import (
     ObjectDTO,
     add_object_information,
@@ -62,10 +62,10 @@ def main(image_path: str) -> None:
         "process time": time,
         # "angle": angle,
     }
-    # image_with_static = add_static_information(image_with_bb, information)
+    image_with_static = add_static_information(image_with_bb, information)
 
     logger.info("Writing result to out.png")
-    cv2.imwrite("out.png", image_with_bb)
+    cv2.imwrite("out.png", image_with_static)
     traffic_signs = [
         detected_object
         for detected_object in result.objects
