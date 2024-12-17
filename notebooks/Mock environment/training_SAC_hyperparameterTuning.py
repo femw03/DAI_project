@@ -6,7 +6,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from gymnasium.wrappers import TimeLimit
 import wandb
 import optuna
-from adaptive_cruise_control_env import AdaptiveCruiseControlEnv  # Adjust path if needed
+from adaptive_cruise_control_env import AdaptiveCruiseControlEnv
 
 def objective(trial):
     """Objective function for Optuna hyperparameter optimization."""

@@ -202,7 +202,7 @@ class AdaptiveCruiseControlEnv(gym.Env):
                 0,
                 1
                 - (self.relative_distance - upper_bound)
-                 (max_safe_distance - upper_bound),
+                / (max_safe_distance - upper_bound),
                 )
 
         reward = safe_distance_reward
