@@ -56,12 +56,12 @@ def main():
     #model = SAC("MlpPolicy", env, verbose=1)
     #print("made model: ", model)
     # Load the previously trained model
-    model = SAC.load("/mnt/storage/resultsRL/LeadingCar_cv_segmentaion_smooth2_10000.zip", env=env, verbose=1)
+    model = SAC.load("/mnt/storage/resultsRL/Stop_cv_perfect2_15000.zip", env=env, verbose=1)
     print("loaded: ", model)
 
     # Define save frequency
-    save_frequency = 10000
-    total_timesteps = 500000  # Total timesteps to train
+    save_frequency = 5000
+    total_timesteps = 250000  # Total timesteps to train
     n_steps = save_frequency  # Steps per save
 
     # Initialize WandbCallback
@@ -80,15 +80,15 @@ def main():
             callback=wandb_callback,
         )
         # Save the model after every `save_frequency` timesteps
-        model.save(f"/mnt/storage/resultsRL/Stop_cv_perfect_{step + n_steps}")
+        model.save(f"/mnt/storage/resultsRL/Stop_cv_cars_perfect_{step + n_steps}")
         wandb.save(
-            f"/mnt/storage/resultsRL/Stop_cv_perfect_{step + n_steps}.zip"
+            f"/mnt/storage/resultsRL/Stop_cv_cars_perfect_{step + n_steps}.zip"
         )
         print(f"Model saved at step: {step + n_steps}")
 
     # Save the final model
-    model.save("Stop_cv_perfect_final")
-    wandb.save("Stop_cv_perfect_final.zip")
+    model.save("Stop_cv_cars_perfect_final")
+    wandb.save("Stop_cv_cars_perfect_final.zip")
 
     # Finish the training wandb run
     wandb.finish()

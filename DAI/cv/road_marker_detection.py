@@ -23,7 +23,7 @@ def detect_road_markers(model: YOLO, data: CarlaData) -> List[Object]:
         half=True,
         device="cuda:0",
         verbose=False,
-        conf=0.1,
+        conf=0.5,
         # iou=0.3,
     )
 
