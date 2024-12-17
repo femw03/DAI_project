@@ -22,6 +22,7 @@ dependencies = [
     "pygame-widgets>=1.0.0",
     "keyboard>=0.13.5",
     "snakeviz>=2.2.1",
+    "optuna>=4.1.0",
 ]
 
 [dependency-groups]
