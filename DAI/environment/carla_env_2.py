@@ -87,6 +87,7 @@ class CarlaEnv2(gym.Env):
         self.pole_index: Optional[int] = None
         self.current_TL: Optional[wrappers.CarlaTrafficLight] = None
         self.ran_light = False
+        self.stop_speeding = False
 
     def reset(self, seed=None, **kwargs):
         """
@@ -118,6 +119,7 @@ class CarlaEnv2(gym.Env):
         self.stop_line_state = 'pending'
         self.route = [wp for wp,_ in self.world.local_planner.get_plan()]
         self.ran_light = False
+        self.stop_speeding = False
         return features.to_tensor(), {}
 
     def step(self, action):
@@ -151,7 +153,7 @@ class CarlaEnv2(gym.Env):
         # dis = False #get_distance_to_leading(self.world) > 75
         # dis = get_distance_to_leading(self.world) > 50
 
-        terminated = crash or self.ran_light #or dis
+        terminated = crash or self.ran_light or self.stop_speeding #or dis
         truncated = False
         info = {}
 
@@ -285,6 +287,9 @@ class CarlaEnv2(gym.Env):
         if collision:
             self.collisionFlag = True
             return 0  # End episode with 0 reward on collision
+        if current_speed > speed_limit + 0.5*speed_limit:
+            self.stop_speeding = True
+            return 0
 
         # Speed Reward Calculation
         safe_distance = 0
@@ -352,7 +357,7 @@ class CarlaEnv2(gym.Env):
                     0,
                     1
                     - (self.distance_to_stop - upper_bound)
-                    / (15 - upper_bound),
+                    / (35 - upper_bound),
                 )
         
 

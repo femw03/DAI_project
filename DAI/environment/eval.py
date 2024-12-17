@@ -23,13 +23,6 @@ from ray.tune.registry import register_env
 
 import wandb
 from DAI.interfaces import Object, ObjectType
-from DAI.simulator.extract import (
-    get_current_affecting_light_state,
-    get_current_max_speed,
-    get_current_speed,
-    get_objects,
-    has_collided,
-)
 from DAI.simulator.wrappers import CarlaTrafficLightState
 from wandb.integration.sb3 import WandbCallback
 
@@ -62,7 +55,7 @@ env = DummyVecEnv([create_env])
 num_stacked_frames = 4
 env = VecFrameStack(env, num_stacked_frames)  # Wrap with VecFrameStack
 
-model = SAC.load("/mnt/storage/resultsRL/LeadingCar_cv_perfect2_80000", env=env, verbose=1)
+model = SAC.load("/mnt/storage/resultsRL/Stop_cv_perfect2_15000", env=env, verbose=1)
 print("loaded: ", model)
 
 obs = env.reset()

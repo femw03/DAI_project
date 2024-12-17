@@ -1,14 +1,18 @@
 import time
+
 import numpy as np
 import pygame
+
+# Custom Environment import
+from env_full_changing_speed_limit import (
+    AdaptiveCruiseControlEnv,  # Adjust this path if needed
+)
+from gymnasium.wrappers import TimeLimit
 from stable_baselines3 import SAC
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
-from gymnasium.wrappers import TimeLimit
-import wandb
 
-# Custom Environment import
-from env_full_changing_speed_limit import AdaptiveCruiseControlEnv  # Adjust this path if needed
+import wandb
 
 # Create the environment and wrap it to limit episode length
 env = make_vec_env(lambda: TimeLimit(AdaptiveCruiseControlEnv(), max_episode_steps=1000), n_envs=1)
