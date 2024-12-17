@@ -52,12 +52,12 @@ def big_object_detection(
         # print(track.get_det_class())
         assert type is not None
         assert confidence is not None
-        object_location = calculate_object_distance(data.lidar_data, box)
+        object_location = calculate_object_distance(data.depth_data, box)
         # object_location = ObjectDistance(depth=0, location=(0, 0))
         object_angle = calculate_anlge(
             object_location.location[0],
             data.rgb_image.fov,
-            data.lidar_data.get_lidar_bytes().shape[1],
+            data.depth_data.get_depth_bytes().shape[1],
         )
         the_real_ones.append(
             Object(

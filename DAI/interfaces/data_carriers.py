@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from loguru import logger
 
-from .image import Image, Lidar
+from .image import Depth, Image
 
 
 ### Objects ###
@@ -110,7 +110,7 @@ class CarlaData:
     """A carrier object that represents the output of the [CarlaWorld]"""
 
     rgb_image: Image
-    lidar_data: Lidar
+    depth_data: Depth
     current_speed: float
     time_stamp: datetime
     angle: float

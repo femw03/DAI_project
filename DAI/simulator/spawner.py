@@ -97,7 +97,6 @@ def spawn_walkers(
         # set the max speed
         speed = 0.0
         if blueprint.contains("speed"):
-            # pass  # TODO
             # if random.random() > percentagePedestriansRunning:
             #     # walking
             speed: float = float(blueprint["speed"].recommended_values[1])

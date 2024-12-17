@@ -22,17 +22,22 @@ Use WASD keys for control.
 # -- find carla module ---------------------------------------------------------
 # ==============================================================================
 
-
 import glob
 import os
 import shutil
 import sys
 
 try:
-    sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
-        sys.version_info.major,
-        sys.version_info.minor,
-        'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
+    sys.path.append(
+        glob.glob(
+            "../carla/dist/carla-*%d.%d-%s.egg"
+            % (
+                sys.version_info.major,
+                sys.version_info.minor,
+                "win-amd64" if os.name == "nt" else "linux-x86_64",
+            )
+        )[0]
+    )
 except IndexError:
     pass
 
@@ -43,7 +48,6 @@ except IndexError:
 
 import argparse
 import random
-import textwrap
 import time
 import weakref
 
@@ -54,11 +58,11 @@ from carla import ColorConverter as cc
 try:
     import pygame
     from pygame.locals import (
-        K_BACKQUOTE,
+        # K_BACKQUOTE,
         K_ESCAPE,
         K_SPACE,
-        K_TAB,
-        KMOD_SHIFT,
+        # K_TAB,
+        # KMOD_SHIFT,
         K_a,
         K_c,
         K_d,
@@ -68,27 +72,23 @@ try:
         K_w,
     )
 except ImportError:
-    raise RuntimeError('cannot import pygame, make sure pygame package is installed')
+    raise RuntimeError("cannot import pygame, make sure pygame package is installed")
 
 try:
     import numpy as np
 except ImportError:
-    raise RuntimeError('cannot import numpy, make sure numpy package is installed')
+    raise RuntimeError("cannot import numpy, make sure numpy package is installed")
 
-try:
-    from PIL import Image
-except ImportError:
-    raise RuntimeError('cannot import PIL, make sure "Pillow" package is installed')
 
-VIEW_WIDTH = 1920//2
-VIEW_HEIGHT = 1080//2
+VIEW_WIDTH = 1920 // 2
+VIEW_HEIGHT = 1080 // 2
 VIEW_FOV = 90
 
-UPPER_FOV_LIDAR = 30.0
-LOWER_FOV_LIDAR = -25.0
-CHANNELS_LIDAR = 64.0
-RANGE_LIDAR = 200.0
-POINTS_PER_SEC_LIDAR = 30000
+UPPER_FOV_DEPTH = 30.0
+LOWER_FOV_DEPTH = -25.0
+CHANNELS_DEPTH = 64.0
+RANGE_DEPTH = 200.0
+POINTS_PER_SEC_DEPTH = 30000
 FRAMERATE = 0.05
 FRAME_PER_SEC = 20
 
@@ -98,7 +98,7 @@ rgb_info = np.zeros((540, 960, 3), dtype="i")
 seg_info = np.zeros((540, 960, 3), dtype="i")
 
 # Directories to create/empty
-dirs = ['custom_data/', 'SegmentationImage/']
+dirs = ["custom_data/", "SegmentationImage/"]
 
 for directory in dirs:
     if os.path.exists(directory):
@@ -131,14 +131,14 @@ class BasicSynchronousClient(object):
 
         self.capture = True
         self.capture_segmentation = True
-        self.capture_lidar = True
+        self.capture_depth = True
 
         self.record = True
         self.seg_record = False
         self.rgb_record = False
 
-        self.screen_capture = 0 
-        self.loop_state = False 
+        self.screen_capture = 0
+        self.loop_state = False
 
     def camera_blueprint(self, filter):
         """
@@ -146,10 +146,10 @@ class BasicSynchronousClient(object):
         """
 
         camera_bp = self.world.get_blueprint_library().find(filter)
-        camera_bp.set_attribute('image_size_x', str(VIEW_WIDTH))
-        camera_bp.set_attribute('image_size_y', str(VIEW_HEIGHT))
-        camera_bp.set_attribute('fov', str(VIEW_FOV))
-        camera_bp.set_attribute('sensor_tick', str(FRAMERATE))
+        camera_bp.set_attribute("image_size_x", str(VIEW_WIDTH))
+        camera_bp.set_attribute("image_size_y", str(VIEW_HEIGHT))
+        camera_bp.set_attribute("fov", str(VIEW_FOV))
+        camera_bp.set_attribute("sensor_tick", str(FRAMERATE))
         return camera_bp
 
     def set_synchronous_mode(self, synchronous_mode):
@@ -166,31 +166,46 @@ class BasicSynchronousClient(object):
         Spawns actor-vehicle to be controled.
         """
 
-        car_bp = self.world.get_blueprint_library().filter('vehicle.*')[0]
+        car_bp = self.world.get_blueprint_library().filter("vehicle.*")[0]
         location = random.choice(self.world.get_map().get_spawn_points())
         self.car = self.world.spawn_actor(car_bp, location)
-
 
     def setup_camera(self):
         """
         Spawns actor-camera to be used to render view.
         Sets calibration for client-side boxes rendering.
         """
-        seg_transform = carla.Transform(carla.Location(x=1.6, z=1.7), carla.Rotation(pitch=-15))
-        self.camera_segmentation = self.world.spawn_actor(self.camera_blueprint('sensor.camera.semantic_segmentation'), seg_transform, attach_to=self.car)
+        seg_transform = carla.Transform(
+            carla.Location(x=1.6, z=1.7), carla.Rotation(pitch=-15)
+        )
+        self.camera_segmentation = self.world.spawn_actor(
+            self.camera_blueprint("sensor.camera.semantic_segmentation"),
+            seg_transform,
+            attach_to=self.car,
+        )
         weak_self = weakref.ref(self)
-        self.camera_segmentation.listen(lambda image_seg: weak_self().set_segmentation(weak_self, image_seg))
+        self.camera_segmentation.listen(
+            lambda image_seg: weak_self().set_segmentation(weak_self, image_seg)
+        )
 
-        #camera_transform = carla.Transform(carla.Location(x=1.5, z=2.8), carla.Rotation(pitch=-15))
-        camera_transform = carla.Transform(carla.Location(x=1.6, z=1.7), carla.Rotation(pitch=-15))
-        self.camera = self.world.spawn_actor(self.camera_blueprint('sensor.camera.rgb'), camera_transform, attach_to=self.car)
+        # camera_transform = carla.Transform(carla.Location(x=1.5, z=2.8), carla.Rotation(pitch=-15))
+        camera_transform = carla.Transform(
+            carla.Location(x=1.6, z=1.7), carla.Rotation(pitch=-15)
+        )
+        self.camera = self.world.spawn_actor(
+            self.camera_blueprint("sensor.camera.rgb"),
+            camera_transform,
+            attach_to=self.car,
+        )
         weak_self = weakref.ref(self)
         self.camera.listen(lambda image: weak_self().set_image(weak_self, image))
 
         calibration = np.identity(3)
         calibration[0, 2] = VIEW_WIDTH / 2.0
         calibration[1, 2] = VIEW_HEIGHT / 2.0
-        calibration[0, 0] = calibration[1, 1] = VIEW_WIDTH / (2.0 * np.tan(VIEW_FOV * np.pi / 360.0))
+        calibration[0, 0] = calibration[1, 1] = VIEW_WIDTH / (
+            2.0 * np.tan(VIEW_FOV * np.pi / 360.0)
+        )
         self.camera.calibration = calibration
         self.camera_segmentation.calibration = calibration
 
@@ -213,13 +228,13 @@ class BasicSynchronousClient(object):
             control.throttle = 1
             control.reverse = True
         if keys[K_a]:
-            control.steer = max(-1., min(control.steer - 0.05, 0))
+            control.steer = max(-1.0, min(control.steer - 0.05, 0))
         elif keys[K_d]:
-            control.steer = min(1., max(control.steer + 0.05, 0))
+            control.steer = min(1.0, max(control.steer + 0.05, 0))
         else:
             control.steer = 0
         if keys[K_p]:
-            car.set_autopilot(True)       
+            car.set_autopilot(True)
         if keys[K_c]:
             self.screen_capture = self.screen_capture + 1
         else:
@@ -233,7 +248,6 @@ class BasicSynchronousClient(object):
 
         car.apply_control(control)
         return False
-            
 
     @staticmethod
     def set_image(weak_self, img):
@@ -251,9 +265,8 @@ class BasicSynchronousClient(object):
             i = np.array(img.raw_data)
             i2 = i.reshape((VIEW_HEIGHT, VIEW_WIDTH, 4))
             i3 = i2[:, :, :3]
-            cv2.imwrite('custom_data/image' + str(self.image_count) + '.png', i3)           
+            cv2.imwrite("custom_data/image" + str(self.image_count) + ".png", i3)
             print("RGB(custom)Image")
-
 
     @staticmethod
     def set_segmentation(weak_self, img):
@@ -273,7 +286,7 @@ class BasicSynchronousClient(object):
             i = np.array(img.raw_data)
             i2 = i.reshape((VIEW_HEIGHT, VIEW_WIDTH, 4))
             i3 = i2[:, :, :3]
-            cv2.imwrite('SegmentationImage/seg' + str(self.image_count) +'.png', i3)
+            cv2.imwrite("SegmentationImage/seg" + str(self.image_count) + ".png", i3)
             print("SegmentationImage")
 
     def render(self, display):
@@ -297,18 +310,20 @@ class BasicSynchronousClient(object):
         try:
             pygame.init()
 
-            self.client = carla.Client('127.0.0.1', 2000)
+            self.client = carla.Client("127.0.0.1", 2000)
             self.client.set_timeout(2.0)
             self.world = self.client.get_world()
 
             self.setup_car()
             self.setup_camera()
 
-            self.display = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
+            self.display = pygame.display.set_mode(
+                (VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF
+            )
             pygame_clock = pygame.time.Clock()
 
             self.set_synchronous_mode(True)
-            
+
             self.image_count = 0
             self.time_interval = 0
 
@@ -318,27 +333,27 @@ class BasicSynchronousClient(object):
                 self.world.tick()
 
                 self.capture = True
-                pygame_clock.tick_busy_loop(FRAME_PER_SEC) 
+                pygame_clock.tick_busy_loop(FRAME_PER_SEC)
 
                 self.render(self.display)
 
                 self.time_interval += 1
-                if ((self.time_interval % args.CaptureLoop) == 0 and self.loop_state):
-                    self.image_count = self.image_count + 1 
+                if (self.time_interval % args.CaptureLoop) == 0 and self.loop_state:
+                    self.image_count = self.image_count + 1
                     self.rgb_record = True
                     self.seg_record = True
                     count = self.image_count
                     print("-------------------------------------------------")
-                    print("ImageCount - %d" %self.image_count)
+                    print("ImageCount - %d" % self.image_count)
 
                 if self.screen_capture == 1:
-                    self.image_count = self.image_count + 1 
+                    self.image_count = self.image_count + 1
                     self.rgb_record = True
                     self.seg_record = True
                     count = self.image_count
                     print("-------------------------------------------------")
-                    print("Captured! ImageCount - %d" %self.image_count)
-                
+                    print("Captured! ImageCount - %d" % self.image_count)
+
                 time.sleep(0.03)
                 self.rgb_record = False
                 self.seg_record = False
@@ -360,18 +375,20 @@ class BasicSynchronousClient(object):
 # -- main() --------------------------------------------------------------------
 # ==============================================================================
 
+
 def main():
     """
     Initializes the client-side bounding box demo.
     """
-    argparser = argparse.ArgumentParser(
-        description=__doc__)
+    argparser = argparse.ArgumentParser(description=__doc__)
     argparser.add_argument(
-        '-l', '--CaptureLoop',
-        metavar='N',
+        "-l",
+        "--CaptureLoop",
+        metavar="N",
         default=100,
         type=int,
-        help='set Capture Cycle settings, Recommand : above 100')
+        help="set Capture Cycle settings, Recommand : above 100",
+    )
 
     args = argparser.parse_args()
 
@@ -381,8 +398,8 @@ def main():
         client = BasicSynchronousClient()
         client.game_loop(args)
     finally:
-        print('EXIT')
+        print("EXIT")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

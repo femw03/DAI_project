@@ -8,7 +8,7 @@ from typing import List, Literal, Tuple
 import cv2
 import numpy as np
 
-from ..interfaces import BoundingBox, Lidar
+from ..interfaces import BoundingBox, Depth
 
 
 @dataclass
@@ -18,14 +18,12 @@ class ObjectDistance:
 
 
 def calculate_object_distance(
-    depth: Lidar, bounding_box: BoundingBox
+    depth: Depth, bounding_box: BoundingBox
 ) -> ObjectDistance:
     """
     Takes a depth image (width, height) and calculates the location (x,y)
     and value of the brightest pixel in the ROI defined by the bounding_box
     """
-    kernal_size = 5
-    sigma = 1.5
     # Region of interest - bounding box coordinates
     x_min, x_max, y_min, y_max = (
         bounding_box.x1,
@@ -34,12 +32,8 @@ def calculate_object_distance(
         bounding_box.y2,
     )
     # Extract depth data
-    # Apply Gaussian smoothing to the entire depth map to reduce noise
-    # smoothed_depth_map = cv2.GaussianBlur(
-    #     depth.get_lidar_bytes(), (kernal_size, kernal_size), sigma
-    # )
     # Extract the region of interest (bounding box) from the smoothed depth map
-    roi_depth: np.ndarray = depth.get_lidar_bytes()[y_min:y_max, x_min:x_max]
+    roi_depth: np.ndarray = depth.get_depth_bytes()[y_min:y_max, x_min:x_max]
     if roi_depth.size == 0:
         min_loc = (bounding_box.x1, bounding_box.x2)
     else:
@@ -50,7 +44,7 @@ def calculate_object_distance(
             roi_depth
         )  # min_loc gives the (x, y) position within the ROI
     # Calculate the position of the closest point in the original image coordinates
-    distance_in_meters = depth.get_lidar_meters()
+    distance_in_meters = depth.get_depth_meters()
     closest_x = x_min + min_loc[0]
     closest_y = y_min + min_loc[1]
     return ObjectDistance(
@@ -156,7 +150,6 @@ def calculate_anlge(x: float, FOV: float, width: float) -> float:
 
 
 def depth_image_to_meters(depth_image: np.ndarray) -> np.ndarray:
-    # TODO move to NumpyLidar
     # Check the shape of the image
     if depth_image.shape[2] != 3:
         raise ValueError("The depth image must have 3 channels (RGB).")

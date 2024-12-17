@@ -1,1 +1,0 @@
-# TODO add the training_scripts that everyone used

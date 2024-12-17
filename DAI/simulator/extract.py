@@ -10,7 +10,7 @@ from ..cv.calculate_distance import calculate_anlge, calculate_object_distance
 from ..cv.lane_detection import expected_deviation
 from ..interfaces import Object, ObjectType
 from .carla_world import CarlaWorld
-from .numpy_image import NumpyLidar
+from .numpy_image import NumpyDepth
 from .segmentation import extract_objects
 from .wrappers import (
     CarlaTrafficLight,
@@ -35,7 +35,7 @@ def get_objects(world: CarlaWorld) -> List[Object]:
     result = extract_objects(segmentation_image)
 
     # Step 2 get depth and and add to results
-    depth = NumpyLidar(
+    depth = NumpyDepth(
         world.depth_image,
         world.view_FOV,
         lambda x: x * 1000,
@@ -152,7 +152,9 @@ def get_distance_to_leading(world: CarlaWorld):
     return world.car.location.distance_to(world.lead_car.location)
 
 
-def get_stop_point(world: CarlaWorld, traffic_light: CarlaTrafficLight) -> Optional[CarlaWaypoint]:
+def get_stop_point(
+    world: CarlaWorld, traffic_light: CarlaTrafficLight
+) -> Optional[CarlaWaypoint]:
     """if a traffic light is affecting the car return the distance to it's supposed stop_point"""
     stop_points = traffic_light.stop_points
     route = [wp for wp, _ in world.local_planner.get_plan()]
@@ -175,12 +177,16 @@ def get_stop_point(world: CarlaWorld, traffic_light: CarlaTrafficLight) -> Optio
     return min(distances, key=lambda dist: dist[0])[1]
 
 
-def get_affecting_traffic_lightV2(world: CarlaWorld, traffic_lights: List[CarlaTrafficLight], route: List[CarlaWaypoint]) -> Optional[CarlaTrafficLight]:
+def get_affecting_traffic_lightV2(
+    world: CarlaWorld,
+    traffic_lights: List[CarlaTrafficLight],
+    route: List[CarlaWaypoint],
+) -> Optional[CarlaTrafficLight]:
     for waypoint in route:
         for traffic_light in traffic_lights:
             for affected_waypoint in traffic_light.affected_waypoints:
                 distance = world.car.location.distance_to(affected_waypoint.location)
-                if distance > 50: 
+                if distance > 50:
                     break
                 delta = waypoint.location.distance_to(affected_waypoint.location)
                 if delta < 0.5:

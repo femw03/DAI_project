@@ -11,7 +11,7 @@ from loguru import logger
 from pygame.time import Clock
 
 from ..interfaces import CarlaData, World
-from .numpy_image import NumpyImage, NumpyLidar
+from .numpy_image import NumpyDepth, NumpyImage
 from .spawner import delete_actors, spawn_vehicles, spawn_walkers
 from .tracker import find_next_wp_from
 from .wrappers import (
@@ -236,7 +236,7 @@ class CarlaWorld(Thread, World):
                     self._set_data(
                         CarlaData(
                             rgb_image=NumpyImage(self.rgb_image, self.view_FOV),
-                            lidar_data=NumpyLidar(
+                            depth_data=NumpyDepth(
                                 self.depth_image,
                                 self.view_FOV,
                                 converter=lambda x: x * 1000,

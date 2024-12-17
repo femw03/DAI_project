@@ -155,11 +155,7 @@ class CarlaEnv2(gym.Env):
         truncated = False
         info = {}
 
-        # observation = get_perfect_obs(world=self.world)  # TODO replace with cv call
-        # test TODO
-        observation = self.cv.process_data(
-            data=self.world.data
-        )  # TODO replace with cv call
+        observation = self.cv.process_data(data=self.world.data)
         # observation.max_speed = get_current_max_speed(self.world)
         # observation.red_light = None  # overwrite for basic training!!!
         self.feature_extractor.margin = self.visuals.margin
@@ -178,8 +174,7 @@ class CarlaEnv2(gym.Env):
             self.detected_vehicle = 0
 
         self.detected_distance = features.distance_to_car_in_front
-        # TODO !!!
-        # print(self.stop_line_state, self.current_TL)
+
         self.should_stop = (
             self.stop_line_state == "pre"
             and self.current_TL.state != wrappers.CarlaTrafficLightState.GREEN
@@ -276,7 +271,6 @@ class CarlaEnv2(gym.Env):
         max_safe_distance = 50
 
         # perfect reward (Leading car)
-        # vehicle_in_front = True  # TODO: No car ahead if real world
         # distance_to_car_in_front = get_distance_to_leading(self.world) - 4
 
         # segmentation reward (No Leading Car)

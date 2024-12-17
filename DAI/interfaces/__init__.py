@@ -8,7 +8,7 @@ from .data_carriers import (  # noqa: F401
     Object,
     ObjectType,
 )
-from .image import Image, Lidar  # noqa: F401
+from .image import Depth, Image  # noqa: F401
 from .system import (  # noqa: F401
     ComputerVisionModule,
     CruiseControlAgent,

@@ -68,7 +68,7 @@ traffic_lights = wrappers.CarlaTrafficLight.all(world.world)
 
 
 def set_view_data(data: CarlaData) -> None:
-    visuals.depth_image = data.lidar_data.get_lidar_bytes()
+    visuals.depth_image = data.depth_data.get_depth_bytes()
     visuals.rgb_image = data.rgb_image.get_image_bytes()
 
 

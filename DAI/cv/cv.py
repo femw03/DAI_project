@@ -23,7 +23,6 @@ class ComputerVisionModuleImp(ComputerVisionModule):
     2. For all detected traffic_signs use the traffic_sign_classifier to classifiy the signs
         a. Use the classified list of traffic signs to extract the current maximum speed
     3. For all detected traffic_light use the traffic_light classifier to detect their relevance and color value
-        # TODO (implement)
     """
 
     def __init__(
@@ -86,11 +85,12 @@ class ComputerVisionModuleImp(ComputerVisionModule):
         detected.extend(traffic_light_objects)
         road_markers = detect_road_markers(self.road_marker_net, data=data)
         detected.extend(road_markers)
-        stop_lines = [
-            road_marker
-            for road_marker in road_markers
-            if road_marker.type == ObjectType.STOP_LINE and road_marker.confidence >= 0.5
-        ]
+        # stop_lines = [
+        #     road_marker
+        #     for road_marker in road_markers
+        #     if road_marker.type == ObjectType.STOP_LINE
+        #     and road_marker.confidence >= 0.5
+        # ]
         crossings = [
             road_marker
             for road_marker in road_markers

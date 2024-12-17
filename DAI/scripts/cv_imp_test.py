@@ -12,7 +12,7 @@ from loguru import logger
 
 from ..cv import ComputerVisionModuleImp
 from ..interfaces import CarlaData, ObjectType
-from ..simulator import NumpyImage, NumpyLidar
+from ..simulator import NumpyDepth, NumpyImage
 from ..utils import timeit_n
 from ..visuals.visual_utils import (
     ObjectDTO,
@@ -29,7 +29,7 @@ def main(image_path: str) -> None:
     image = cv2.imread(image_path)
     data = CarlaData(
         rgb_image=NumpyImage(image, 90),
-        lidar_data=NumpyLidar(
+        depth_data=NumpyDepth(
             np.random.random(image.shape[:2]), 90, lambda x: x * 1000
         ),
         time_stamp=0,

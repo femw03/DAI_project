@@ -40,12 +40,12 @@ def detect_road_markers(model: YOLO, data: CarlaData) -> List[Object]:
     ):
         type = LABELS[labels[label_index]]
         bounding_box = BoundingBox.from_array(bounding_box_coord)
-        object_location = calculate_object_distance(data.lidar_data, bounding_box)
+        object_location = calculate_object_distance(data.depth_data, bounding_box)
         # object_location = ObjectDistance(depth=0, location=(0, 0))
         object_angle = calculate_anlge(
             object_location.location[0],
             data.rgb_image.fov,
-            data.lidar_data.get_lidar_bytes().shape[1],
+            data.depth_data.get_depth_bytes().shape[1],
         )
         detected.append(
             Object(
