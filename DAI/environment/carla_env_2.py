@@ -43,6 +43,7 @@ class CarlaEnv2(gym.Env):
         self.detected_speed_limit = 0
         self.detected_vehicle = 0
         self.last_speed = 0
+        self.ran_light_counter = 0
         # self.wrongSpeedLimitCounter = 0
 
         self.max_objects = config[
@@ -178,7 +179,7 @@ class CarlaEnv2(gym.Env):
 
         self.detected_distance = features.distance_to_car_in_front
         # TODO !!!
-        print(self.stop_line_state, self.current_TL)
+        #print(self.stop_line_state, self.current_TL)
         self.should_stop = self.stop_line_state == 'pre' and self.current_TL.state != wrappers.CarlaTrafficLightState.GREEN
         self.distance_to_stop = self.stop_point.location.distance_to(self.world.car.location) if self.should_stop else None
         features.should_stop = self.should_stop
@@ -247,7 +248,8 @@ class CarlaEnv2(gym.Env):
             if self.stop_point.is_passed(self.world.car.location):
                 self.stop_line_state = 'post'
                 if self.current_TL.state == wrappers.CarlaTrafficLightState.RED:
-                    self.ran_light = True # ran stop light => Terminate TODO
+                    self.ran_light = True 
+                    self.ran_light_counter += 1
         elif self.stop_line_state == 'post':
             self.current_TL = get_affecting_traffic_lightV2(self.world, self.traffic_lights, self.route)
             if self.current_TL is None:
@@ -335,8 +337,8 @@ class CarlaEnv2(gym.Env):
         # stop reward
         if self.should_stop:
             
-            lower_bound = 0.2
-            upper_bound = 1.2
+            lower_bound = 1
+            upper_bound = 2
 
             if lower_bound <= self.distance_to_stop <= upper_bound:
                 stop_reward = 1  # Perfect safe distance
@@ -402,6 +404,7 @@ class CarlaEnv2(gym.Env):
             "should_stop": self.should_stop,
             "distance_to_stop": self.distance_to_stop,
             "collisions": self.collisionCounter,
+            "ran_light_counter": self.ran_light_counter,
             # if vehicle_in_front is not None
             # else "None",
         }
