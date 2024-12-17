@@ -10,6 +10,7 @@ To follow the global route. To set the global route use the global_planner trace
 """
 
 import random
+import threading
 from collections import deque
 from enum import IntEnum
 from typing import Deque, List, Tuple
@@ -97,6 +98,7 @@ class LocalPlanner(object):
             RoadOption.LANEFOLLOW,
         )
         self._waypoints_queue.append((self.target_waypoint, self.target_road_option))
+        self._lock = threading.RLock()
 
     def _compute_next_waypoints(self, k=1) -> None:
         """
@@ -213,9 +215,11 @@ class LocalPlanner(object):
 
         return control
 
-    def get_plan(self):
+    def get_plan(self) -> List[Tuple[CarlaWaypoint, RoadOption]]:
         """Returns the current plan of the local planner"""
-        return self._waypoints_queue
+        with self._lock:
+            result = [(wp, option) for wp, option in self._waypoints_queue]
+        return result
 
     def done(self, location: CarlaLocation):
         """
