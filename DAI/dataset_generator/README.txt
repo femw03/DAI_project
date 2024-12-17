@@ -1,7 +1,7 @@
 CLASSIFICATION CLASSES
 
-0 = pedestrians
-1 = vehicles
+0 = car
+1 = pedestrians
 2 = traffic lights
 3 = traffic signs
 4 = bus
